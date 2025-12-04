@@ -10,7 +10,6 @@
     <title>@yield('title', 'Arepas el Buen Sabor - Sistema de Gestión')</title>
 
     <!-- Tailwind CSS -->
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -49,55 +48,6 @@
 
     <!-- SweetAlert2 para alertas bonitas -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-        // Configure SweetAlert2 defaults based on theme
-        // Configure SweetAlert2 defaults based on theme
-        const originalSwalFire = Swal.fire;
-        Swal.fire = function(...args) {
-            const isDark = document.documentElement.classList.contains('dark');
-            
-            if (isDark) {
-                const darkOverrides = {
-                    background: '#1f2937',
-                    color: '#f9fafb',
-                    customClass: {
-                        popup: 'dark:bg-gray-800 dark:text-white',
-                        title: 'dark:text-white',
-                        htmlContainer: 'dark:text-gray-300',
-                        input: 'dark:bg-gray-700 dark:text-white dark:border-gray-600',
-                        validationMessage: 'dark:bg-gray-700 dark:text-white'
-                    }
-                };
-
-                if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-                    // Case 1: Configuration object
-                    const userConfig = args[0];
-                    const mergedCustomClass = {
-                        ...darkOverrides.customClass,
-                        ...(userConfig.customClass || {})
-                    };
-                    
-                    args[0] = {
-                        ...userConfig,
-                        background: darkOverrides.background,
-                        color: darkOverrides.color,
-                        customClass: mergedCustomClass
-                    };
-                } else if (args.length > 0) {
-                    // Case 2: Shorthand arguments (title, html, icon)
-                    const [title, html, icon] = args;
-                    args = [{
-                        title,
-                        html,
-                        icon,
-                        ...darkOverrides
-                    }];
-                }
-            }
-            
-            return originalSwalFire.apply(this, args);
-        };
-    </script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -107,7 +57,6 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="{{ asset('styles.css') }}">
 
-    <!-- Favicon -->
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="{{ asset('images/logo.jpeg') }}">
 
@@ -121,6 +70,83 @@
         }
         
         @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+        }
+
+        /* Critical Dark Mode Fixes */
+        html.dark th {
+            background-color: #1f2937 !important; /* gray-800 */
+            color: #fff !important;
+            border-color: #374151 !important;
+        }
+        
+        html.dark td {
+            color: #e5e7eb !important;
+            border-color: #374151 !important;
+        }
+
+        html.dark tr:hover {
+            background-color: rgba(55, 65, 81, 0.5) !important;
+        }
+        
+        html.dark input, 
+        html.dark select, 
+        html.dark textarea {
+            background-color: #1f2937 !important;
+            color: #fff !important;
+            border-color: #4b5563 !important;
+        }
+
+        html.dark .bg-white {
+            background-color: #1f2937 !important;
+        }
+
+        html.dark table, 
+        html.dark tbody, 
+        html.dark tr {
+            background-color: transparent !important;
+        }
+
+        /* SweetAlert2 Dark Mode - High Specificity */
+        html.dark .swal2-container .swal2-popup {
+            background-color: #1f2937 !important;
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-title,
+        html.dark .swal2-container .swal2-html-container,
+        html.dark .swal2-container .swal2-content {
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-input,
+        html.dark .swal2-container .swal2-textarea,
+        html.dark .swal2-container .swal2-select {
+            background-color: #374151 !important;
+            border-color: #4b5563 !important;
+            color: white !important;
+        }
+        
+        html.dark .swal2-container .swal2-validation-message {
+            background-color: #374151 !important;
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-timer-progress-bar {
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+        
+        html.dark .swal2-container .swal2-close:hover {
+            color: #9ca3af !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+    <!-- Main Layout -->
+    <div class="flex h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <!-- Sidebar -->
         <aside id="sidebar" class="sidebar fixed lg:static w-64 h-full bg-white dark:bg-gray-800 shadow-lg flex flex-col z-30 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 border-r border-gray-200 dark:border-gray-700">
             <!-- Logo -->
@@ -192,7 +218,6 @@
                             <span class="font-medium">Configuración</span>
                         </a>
                     </li>
-                </ul>
                 </ul>
             </nav>
 

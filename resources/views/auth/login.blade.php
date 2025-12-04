@@ -6,6 +6,7 @@
     <title>Iniciar Sesión - Arepas el Buen Sabor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 para alertas bonitas -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // Check for saved theme preference or system preference
@@ -14,53 +15,6 @@
         } else {
             document.documentElement.classList.remove('dark');
         }
-
-        // Configure SweetAlert2 defaults based on theme
-        const originalSwalFire = Swal.fire;
-        Swal.fire = function(...args) {
-            const isDark = document.documentElement.classList.contains('dark');
-            
-            if (isDark) {
-                const darkOverrides = {
-                    background: '#1f2937',
-                    color: '#f9fafb',
-                    customClass: {
-                        popup: 'dark:bg-gray-800 dark:text-white',
-                        title: 'dark:text-white',
-                        htmlContainer: 'dark:text-gray-300',
-                        input: 'dark:bg-gray-700 dark:text-white dark:border-gray-600',
-                        validationMessage: 'dark:bg-gray-700 dark:text-white'
-                    }
-                };
-
-                if (args.length > 0 && typeof args[0] === 'object' && args[0] !== null) {
-                    // Case 1: Configuration object
-                    const userConfig = args[0];
-                    const mergedCustomClass = {
-                        ...darkOverrides.customClass,
-                        ...(userConfig.customClass || {})
-                    };
-                    
-                    args[0] = {
-                        ...userConfig,
-                        background: darkOverrides.background,
-                        color: darkOverrides.color,
-                        customClass: mergedCustomClass
-                    };
-                } else if (args.length > 0) {
-                    // Case 2: Shorthand arguments (title, html, icon)
-                    const [title, html, icon] = args;
-                    args = [{
-                        title,
-                        html,
-                        icon,
-                        ...darkOverrides
-                    }];
-                }
-            }
-            
-            return originalSwalFire.apply(this, args);
-        };
     </script>
     <style>
         body { font-family: 'Outfit', sans-serif; }
@@ -71,6 +25,39 @@
         .bg-pattern {
             background-color: #f59e0b;
             background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23b45309' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        /* SweetAlert2 Dark Mode - High Specificity */
+        html.dark .swal2-container .swal2-popup {
+            background-color: #1f2937 !important;
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-title,
+        html.dark .swal2-container .swal2-html-container,
+        html.dark .swal2-container .swal2-content {
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-input,
+        html.dark .swal2-container .swal2-textarea,
+        html.dark .swal2-container .swal2-select {
+            background-color: #374151 !important;
+            border-color: #4b5563 !important;
+            color: white !important;
+        }
+        
+        html.dark .swal2-container .swal2-validation-message {
+            background-color: #374151 !important;
+            color: #f9fafb !important;
+        }
+        
+        html.dark .swal2-container .swal2-timer-progress-bar {
+            background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+        
+        html.dark .swal2-container .swal2-close:hover {
+            color: #9ca3af !important;
         }
     </style>
 </head>
