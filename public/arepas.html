@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema de gestión empresarial para Arepas el Buen Sabor">
+    <meta name="theme-color" content="#10b981">
+    <title>Arepas el Buen Sabor - Sistema de Gestión</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="icons/favicon.png">
+</head>
+
+<body class="bg-gray-50 font-sans">
+    <!-- App Container -->
+    <div id="app" class="min-h-screen">
+        <!-- Content will be loaded here dynamically -->
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+            <p class="mt-4 text-gray-700 font-medium">Cargando...</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/utils/toast.js"></script>
+    <script src="/js/utils/charts.js"></script>
+    <script src="/js/utils/export.js"></script>
+    <script src="/js/database.js"></script>
+    <script src="/js/modules/auth.js"></script>
+    <script src="/js/modules/dashboard.js"></script>
+    <script src="/js/modules/inventory.js"></script>
+    <script src="/js/modules/sales.js"></script>
+    <script src="/js/modules/rawMaterials.js"></script>
+    <script src="/js/modules/suppliers.js"></script>
+    <script src="/js/modules/hr.js"></script>
+    <script src="/js/modules/aiAssistant.js"></script>
+    <script src="/app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('Service Worker registrado'))
+                    .catch(err => console.log('Error al registrar Service Worker:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,740 @@
+/* Custom Styles for Arepas el Buen Sabor */
+
+:root {
+    --primary-color: #10b981;
+    --primary-dark: #059669;
+    --secondary-color: #3b82f6;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --success-color: #10b981;
+    --text-dark: #1f2937;
+    --text-light: #6b7280;
+    --bg-light: #f9fafb;
+    --border-color: #e5e7eb;
+}
+
+html.dark {
+    --text-dark: #f9fafb;
+    --text-light: #9ca3af;
+    --bg-light: #1f2937;
+    --border-color: #374151;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text-dark);
+    line-height: 1.6;
+}
+
+/* Smooth Transitions */
+* {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Card Hover Effects */
+.card-hover {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Button Styles */
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background-color: #2563eb;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+    padding: 0.5rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+/* Input Styles */
+input,
+select,
+textarea {
+    outline: none;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.625rem 1rem;
+    width: 100%;
+    font-size: 0.875rem;
+    background-color: white;
+    color: var(--text-dark);
+}
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    color: white !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--primary-color);
+    ring: 2px;
+    ring-color: rgba(16, 185, 129, 0.2);
+}
+
+/* Table Styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    background-color: #f9fafb;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-dark);
+    border-bottom: 2px solid var(--border-color);
+}
+
+html.dark th {
+    background-color: #374151 !important;
+    color: white !important;
+    border-bottom-color: #4b5563 !important;
+}
+
+td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text-dark);
+}
+
+html.dark td {
+    border-bottom-color: #374151 !important;
+    color: #d1d5db !important;
+}
+
+/* Animation Classes */
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Chart Container */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Badge Styles */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.badge-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.badge-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+/* Sidebar */
+.sidebar {
+    transition: transform 0.3s ease-in-out;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+}
+
+/* Loading Animation */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Utility Classes */
+.shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-medium {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.shadow-strong {
+    .btn-secondary {
+        background-color: var(--secondary-color);
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+        background-color: #2563eb;
+    }
+
+    .btn-danger {
+        background-color: var(--danger-color);
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-danger:hover {
+        background-color: #dc2626;
+    }
+
+    /* Input Styles */
+    input,
+    select,
+    textarea {
+        outline: none;
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 0.625rem 1rem;
+        width: 100%;
+        font-size: 0.875rem;
+        background-color: white;
+        color: var(--text-dark);
+    }
+
+    html.dark input,
+    html.dark select,
+    html.dark textarea {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: white !important;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+        border-color: var(--primary-color);
+        ring: 2px;
+        ring-color: rgba(16, 185, 129, 0.2);
+    }
+
+    /* Table Styles */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        background-color: #f9fafb;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-dark);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    html.dark th {
+        background-color: #374151 !important;
+        color: white !important;
+        border-bottom-color: #4b5563 !important;
+    }
+
+    td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.875rem;
+        color: var(--text-dark);
+    }
+
+    html.dark td {
+        border-bottom-color: #374151 !important;
+        color: #d1d5db !important;
+    }
+
+    /* Animation Classes */
+    @keyframes slideIn {
+        from {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    /* Badge Styles */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-info {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        transition: transform 0.3s ease-in-out;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+    }
+
+    /* Loading Animation */
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+
+    /* Utility Classes */
+    .shadow-soft {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .shadow-medium {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .shadow-strong {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    }
+
+    /* Print Styles */
+    @media print {
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+        background-color: #2563eb;
+    }
+
+    .btn-danger {
+        background-color: var(--danger-color);
+        color: white;
+        padding: 0.5rem 1.5rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn-danger:hover {
+        background-color: #dc2626;
+    }
+
+    /* Input Styles */
+    input,
+    select,
+    textarea {
+        outline: none;
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 0.625rem 1rem;
+        width: 100%;
+        font-size: 0.875rem;
+        background-color: white;
+        color: var(--text-dark);
+    }
+
+    html.dark input,
+    html.dark select,
+    html.dark textarea {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: white !important;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+        border-color: var(--primary-color);
+        ring: 2px;
+        ring-color: rgba(16, 185, 129, 0.2);
+    }
+
+    /* Table Styles */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        background-color: #f9fafb;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-dark);
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    html.dark th {
+        background-color: #374151 !important;
+        color: white !important;
+        border-bottom-color: #4b5563 !important;
+    }
+
+    td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.875rem;
+        color: var(--text-dark);
+    }
+
+    html.dark td {
+        border-bottom-color: #374151 !important;
+        color: #d1d5db !important;
+    }
+
+    /* Animation Classes */
+    @keyframes slideIn {
+        from {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Chart Container */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+
+    /* Badge Styles */
+    .badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background-color: #d1fae5;
+        color: #065f46;
+    }
+
+    .badge-warning {
+        background-color: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-danger {
+        background-color: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-info {
+        background-color: #dbeafe;
+        color: #1e40af;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        transition: transform 0.3s ease-in-out;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+    }
+
+    /* Loading Animation */
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .animate-spin {
+        animation: spin 1s linear infinite;
+    }
+
+    /* Utility Classes */
+    .shadow-soft {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .shadow-medium {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .shadow-strong {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    }
+
+    /* Print Styles */
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+    }
+
+    /* SweetAlert2 Dark Mode Overrides */
+    html.dark .swal2-container.swal2-center>.swal2-popup,
+    html.dark .swal2-popup {
+        background-color: #1f2937 !important;
+        color: #f9fafb !important;
+    }
+
+    html.dark .swal2-title,
+    html.dark .swal2-html-container,
+    html.dark .swal2-content {
+        color: #f9fafb !important;
+    }
+
+    html.dark .swal2-input,
+    html.dark .swal2-textarea,
+    html.dark .swal2-select {
+        background-color: #374151 !important;
+        border-color: #4b5563 !important;
+        color: white !important;
+    }
+
+    html.dark .swal2-validation-message {
+        background-color: #374151 !important;
+        color: #f9fafb !important;
+    }
+
+    html.dark .swal2-timer-progress-bar {
+        background-color: rgba(255, 255, 255, 0.5) !important;
+    }
+
+    html.dark .swal2-close {
+        color: #f9fafb !important;
+    }
+
+    html.dark .swal2-close:hover {
+        color: #9ca3af !important;
+    }
+
+    html.dark .swal2-icon.swal2-question {
+        border-color: #9ca3af !important;
+        color: #9ca3af !important;
+    }
+
+    html.dark .swal2-icon.swal2-success {
+        border-color: #10b981 !important;
+        color: #10b981 !important;
+    }
+
+    html.dark .swal2-icon.swal2-warning {
+        border-color: #f59e0b !important;
+        color: #f59e0b !important;
+    }
+
+    html.dark .swal2-icon.swal2-error {
+        border-color: #ef4444 !important;
+        color: #ef4444 !important;
+    }
