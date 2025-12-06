@@ -139,9 +139,8 @@ const RawMaterials = {
         const select = document.getElementById('transaction-material');
         if (!select) return;
 
-        const materials = Database.getAll('rawMaterials');
         select.innerHTML = '<option value="">Selecciona material...</option>' +
-            materials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+            this.currentMaterials.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
     },
 
     renderMaterialsTable() {
