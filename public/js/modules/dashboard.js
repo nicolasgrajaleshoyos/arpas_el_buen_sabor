@@ -127,8 +127,12 @@ const Dashboard = {
             'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
         ];
 
-        const currentYear = new Date().getFullYear();
-        const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+        const startYear = 2023;
+        const endYear = 2050;
+        const years = [];
+        for (let year = startYear; year <= endYear; year++) {
+            years.push(year);
+        }
 
         return `
             <div class="space-y-6">

@@ -60,10 +60,17 @@ const RawMaterials = {
         }
     },
 
-    loadMaterials() {
-        this.currentMaterials = Database.getAll('rawMaterials');
-        this.renderMaterialsTable();
-        this.loadMaterialOptions();
+    async loadMaterials() {
+        try {
+            const response = await fetch('/api/raw-materials');
+            const data = await response.json();
+            this.currentMaterials = data;
+            this.renderMaterialsTable();
+            this.loadMaterialOptions();
+        } catch (error) {
+            console.error('Error loading materials:', error);
+            Toast.error('Error al cargar insumos del servidor');
+        }
     },
 
     loadTransactions() {
@@ -89,13 +96,15 @@ const RawMaterials = {
         tbody.innerHTML = this.currentMaterials.map(material => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${material.name}</td>
+                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${material.supplier?.name || 'Sin proveedor'}</td>
                 <td class="px-6 py-4">
-                    <span class="badge ${material.stock > material.minStock ? 'badge-success' : 'badge-warning'}">
+                    <span class="badge ${material.stock > material.min_stock ? 'badge-success' : 'badge-warning'}">
                         ${material.stock} ${material.unit}
                     </span>
                 </td>
-                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${material.minStock} ${material.unit}</td>
+                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${material.min_stock} ${material.unit}</td>
                 <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">$${material.price.toLocaleString()}</td>
+                <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">$${(material.stock * material.price).toLocaleString()}</td>
                 <td class="px-6 py-4">
                     <div class="flex gap-2">
                         <button onclick="RawMaterials.editMaterial(${material.id})" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Editar">
@@ -183,6 +192,13 @@ const RawMaterials = {
                 </td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${transaction.quantity}</td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${transaction.notes || '-'}</td>
+                <td class="px-6 py-4">
+                    <button onclick="RawMaterials.deleteTransaction(${transaction.id})" class="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </td>
             </tr>
         `).join('');
     },
@@ -264,6 +280,44 @@ const RawMaterials = {
         }
     },
 
+    deleteTransaction(id) {
+        if (!confirm('¿Estás seguro de eliminar esta transacción? Esto revertirá el movimiento de stock.')) {
+            return;
+        }
+
+        const transaction = Database.getById('materialTransactions', id);
+        if (!transaction) {
+            Toast.error('Transacción no encontrada');
+            return;
+        }
+
+        // Revert the stock change
+        const material = Database.getById('rawMaterials', transaction.materialId);
+        if (material) {
+            let newStock = material.stock;
+
+            // Reverse the transaction effect
+            if (transaction.type === 'Compra') {
+                // If it was a purchase, subtract the quantity
+                newStock -= transaction.quantity;
+            } else {
+                // If it was a usage/output, add the quantity back
+                newStock += transaction.quantity;
+            }
+
+            // Update material stock
+            Database.update('rawMaterials', transaction.materialId, { stock: newStock });
+        }
+
+        // Delete the transaction
+        Database.delete('materialTransactions', id);
+        Toast.success('Transacción eliminada exitosamente');
+
+        // Reload data
+        this.loadMaterials();
+        this.loadTransactions();
+    },
+
     render() {
         return `
             <div class="space-y-6">
@@ -290,6 +344,9 @@ const RawMaterials = {
                         <button data-tab="transactions" class="py-4 px-1 border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">
                             Movimientos
                         </button>
+                        <a href="/purchases" class="py-4 px-1 border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">
+                            Compras
+                        </a>
                     </nav>
                 </div>
                 
@@ -301,9 +358,11 @@ const RawMaterials = {
                                 <thead>
                                     <tr>
                                         <th class="text-left">Material</th>
+                                        <th class="text-left">Proveedor</th>
                                         <th class="text-left">Stock Actual</th>
                                         <th class="text-left">Stock Mínimo</th>
                                         <th class="text-left">Precio Unitario</th>
+                                        <th class="text-left">Total</th>
                                         <th class="text-left">Acciones</th>
                                     </tr>
                                 </thead>
@@ -334,10 +393,9 @@ const RawMaterials = {
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Movimiento</label>
                                     <select id="transaction-type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                                         <option value="">Selecciona tipo...</option>
-                                        <option value="Compra">Compra</option>
                                         <option value="Producción">Uso en Producción</option>
-                                        <option value="Venta Directa">Venta Directa</option>
                                         <option value="Desperdicio">Desperdicio</option>
+                                        <option value="Ajuste">Ajuste de Inventario</option>
                                     </select>
                                 </div>
                                 
@@ -370,6 +428,7 @@ const RawMaterials = {
                                             <th class="text-left text-sm">Tipo</th>
                                             <th class="text-left text-sm">Cantidad</th>
                                             <th class="text-left text-sm">Notas</th>
+                                            <th class="text-left text-sm">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody id="transactions-tbody">
@@ -413,14 +472,17 @@ const RawMaterials = {
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Unidad</label>
-                                    <select id="material-unit" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
+                                    <input type="text" id="material-unit" list="unit-suggestions" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" placeholder="Ej: kg, g, l, ml, unid..." required>
+                                    <datalist id="unit-suggestions">
                                         <option value="kg">Kilogramos (kg)</option>
                                         <option value="g">Gramos (g)</option>
                                         <option value="l">Litros (l)</option>
                                         <option value="ml">Mililitros (ml)</option>
                                         <option value="unid">Unidades</option>
                                         <option value="lb">Libras (lb)</option>
-                                    </select>
+                                        <option value="oz">Onzas (oz)</option>
+                                        <option value="ton">Toneladas (ton)</option>
+                                    </datalist>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Precio Unitario</label>

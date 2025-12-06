@@ -4,46 +4,81 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\RawMaterial;
 
 class RawMaterialController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return response()->json(RawMaterial::with('supplier')->get());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'unit' => 'required|string|max:50',
+                'stock' => 'required|numeric|min:0',
+                'min_stock' => 'required|numeric|min:0',
+                'price' => 'required|numeric|min:0',
+                'supplier_id' => 'nullable|exists:suppliers,id',
+            ]);
+
+            $material = RawMaterial::create($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Materia prima creada exitosamente',
+                'data' => $material
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error creating raw material: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear materia prima: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, string $id)
     {
-        //
+        try {
+            $material = RawMaterial::findOrFail($id);
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'unit' => 'required|string|max:50',
+                'stock' => 'required|numeric|min:0',
+                'min_stock' => 'required|numeric|min:0',
+                'price' => 'required|numeric|min:0',
+                'supplier_id' => 'nullable|exists:suppliers,id',
+            ]);
+
+            $material->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Materia prima actualizada exitosamente',
+                'data' => $material
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error updating raw material: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al actualizar materia prima: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(string $id)
     {
-        //
+        $material = RawMaterial::findOrFail($id);
+        $material->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Materia prima eliminada exitosamente'
+        ]);
     }
 }

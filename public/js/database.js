@@ -26,7 +26,10 @@ const Database = {
 
         // Initialize empty tables
         this.save('products', []);
+
+        // Initialize sales with random data if requested
         this.save('sales', []);
+
         this.save('rawMaterials', []);
         this.save('materialTransactions', []);
         this.save('suppliers', []);
@@ -81,7 +84,10 @@ const Database = {
                 }
             ]);
         }
-    },
+    }
+    ,
+
+
 
     // Get all records from a table
     getAll(table) {

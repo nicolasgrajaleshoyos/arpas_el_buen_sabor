@@ -23,9 +23,16 @@ const Suppliers = {
         }
     },
 
-    loadSuppliers() {
-        this.currentSuppliers = Database.getAll('suppliers');
-        this.renderSuppliers();
+    async loadSuppliers() {
+        try {
+            const response = await fetch('/api/suppliers');
+            const data = await response.json();
+            this.currentSuppliers = data;
+            this.renderSuppliers();
+        } catch (error) {
+            console.error('Error loading suppliers:', error);
+            Toast.error('Error al cargar proveedores del servidor');
+        }
     },
 
     renderSuppliers() {
@@ -128,7 +135,7 @@ const Suppliers = {
         this.editingId = null;
     },
 
-    saveSupplier() {
+    async saveSupplier() {
         const supplierData = {
             name: document.getElementById('supplier-name').value.trim(),
             nit: document.getElementById('supplier-nit').value.trim(),
@@ -143,30 +150,74 @@ const Suppliers = {
             return;
         }
 
-        if (this.editingId) {
-            Database.update('suppliers', this.editingId, supplierData);
-            Toast.success('Proveedor actualizado exitosamente');
-        } else {
-            Database.add('suppliers', supplierData);
-            Toast.success('Proveedor agregado exitosamente');
-        }
+        try {
+            let response;
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            };
 
-        this.closeModal();
-        this.loadSuppliers();
+            if (this.editingId) {
+                response = await fetch(`/api/suppliers/${this.editingId}`, {
+                    method: 'PUT',
+                    headers: headers,
+                    body: JSON.stringify(supplierData)
+                });
+            } else {
+                response = await fetch('/api/suppliers', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(supplierData)
+                });
+            }
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                Toast.success(result.message);
+                this.closeModal();
+                this.loadSuppliers();
+            } else {
+                Toast.error(result.message || 'Error al guardar proveedor');
+                if (result.errors) {
+                    console.error('Validation errors:', result.errors);
+                }
+            }
+        } catch (error) {
+            console.error('Error saving supplier:', error);
+            Toast.error('Error de conexión al guardar');
+        }
     },
 
     editSupplier(id) {
-        const supplier = Database.getById('suppliers', id);
+        const supplier = this.currentSuppliers.find(s => s.id === id);
         if (supplier) {
             this.showSupplierModal(supplier);
         }
     },
 
-    deleteSupplier(id) {
+    async deleteSupplier(id) {
         if (confirm('¿Estás seguro de eliminar este proveedor?')) {
-            Database.delete('suppliers', id);
-            Toast.success('Proveedor eliminado exitosamente');
-            this.loadSuppliers();
+            try {
+                const response = await fetch(`/api/suppliers/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    Toast.success(result.message);
+                    this.loadSuppliers();
+                } else {
+                    Toast.error(result.message || 'Error al eliminar proveedor');
+                }
+            } catch (error) {
+                console.error('Error deleting supplier:', error);
+                Toast.error('Error de conexión al eliminar');
+            }
         }
     },
 
@@ -259,3 +310,5 @@ const Suppliers = {
         `;
     }
 };
+
+
