@@ -16,17 +16,31 @@ class PurchaseController extends Controller
     {
         $query = Purchase::with('supplier');
 
-        if ($request->has('search')) {
+        // Get available years for the filter
+        $years = Purchase::pluck('purchase_date')
+            ->map(function ($date) {
+                return \Carbon\Carbon::parse($date)->year;
+            })
+            ->unique()
+            ->sortDesc();
+
+        if ($request->has('search') && $request->search != '') {
             $search = $request->search;
-            $query->where('reference_number', 'like', "%{$search}%")
-                  ->orWhereHas('supplier', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
+            $query->where(function($q) use ($search) {
+                $q->where('reference_number', 'like', "%{$search}%")
+                  ->orWhereHas('supplier', function($subQ) use ($search) {
+                      $subQ->where('name', 'like', "%{$search}%");
                   });
+            });
+        }
+
+        if ($request->has('year') && $request->year != '') {
+            $query->whereYear('purchase_date', $request->year);
         }
 
         $purchases = $query->orderBy('purchase_date', 'desc')->paginate(10);
 
-        return view('purchases.index', compact('purchases'));
+        return view('purchases.index', compact('purchases', 'years'));
     }
 
     public function create()

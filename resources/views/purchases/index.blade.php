@@ -37,25 +37,45 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 transition-colors">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Historial de Compras</h3>
         
-        <!-- Search -->
+        <!-- Search and Filter -->
         <div class="mb-6">
-            <form action="{{ route('purchases.index') }}" method="GET" class="flex gap-2">
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar por referencia o proveedor..." class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500">
-                <button type="submit" class="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors">
+            <form action="{{ route('purchases.index') }}" method="GET" class="flex flex-col sm:flex-row gap-4">
+                <div class="flex-1">
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Buscar por referencia o proveedor..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500">
+                </div>
+                <div class="w-full sm:w-48">
+                    <select name="year" onchange="this.form.submit()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500">
+                        <option value="">Todos los años</option>
+                        @foreach($years as $year)
+                            <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg transition-colors font-medium flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
+                    Buscar
                 </button>
             </form>
             
-            @if(request('search'))
-            <div class="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-700 dark:text-gray-300">Total de compras filtradas:</span>
-                    <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400">${{ number_format($purchases->sum('total_amount'), 0, ',', '.') }}</span>
+            @if(request('search') || request('year'))
+            <div class="mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800 flex justify-between items-center flex-wrap gap-4">
+                <div>
+                    <span class="text-gray-700 dark:text-gray-300">Total filtrado:</span>
+                    <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 ml-2">${{ number_format($purchases->sum('total_amount'), 0, ',', '.') }}</span>
                 </div>
-                <div class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Mostrando {{ $purchases->count() }} compra(s) que coinciden con "{{ request('search') }}"
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                    @if(request('search'))
+                        Búsqueda: "{{ request('search') }}"
+                    @endif
+                    @if(request('search') && request('year'))
+                        |
+                    @endif
+                    @if(request('year'))
+                        Año: {{ request('year') }}
+                    @endif
+                    <a href="{{ route('purchases.index') }}" class="ml-2 text-red-500 hover:text-red-700 font-medium hover:underline">Limpiar filtros</a>
                 </div>
             </div>
             @endif
