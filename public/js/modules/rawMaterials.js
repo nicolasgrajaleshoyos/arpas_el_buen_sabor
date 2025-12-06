@@ -86,11 +86,29 @@ const RawMaterials = {
         }
     },
 
-    loadTransactions() {
-        this.currentTransactions = Database.getAll('materialTransactions').sort((a, b) =>
-            new Date(b.date) - new Date(a.date)
-        );
-        this.applyFilters();
+    async loadTransactions() {
+        try {
+            const response = await fetch('/api/material-transactions');
+            const data = await response.json();
+
+            // Transform API response to match expected format
+            this.currentTransactions = data.map(t => ({
+                id: t.id,
+                materialId: t.raw_material_id,
+                materialName: t.material_name || t.raw_material?.name || 'Desconocido',
+                type: t.type,
+                quantity: parseFloat(t.quantity),
+                notes: t.notes || '',
+                date: t.transaction_date || t.created_at
+            }));
+
+            this.applyFilters();
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+            Toast.error('Error al cargar transacciones del servidor');
+            this.currentTransactions = [];
+            this.applyFilters();
+        }
     },
 
     applyFilters() {
@@ -98,6 +116,11 @@ const RawMaterials = {
         const typeFilter = document.getElementById('filter-type')?.value || '';
 
         this.filteredTransactions = this.currentTransactions.filter(transaction => {
+            // Exclude purchases - only show outputs (Producción, Desperdicio, Ajuste)
+            if (transaction.type === 'Compra') {
+                return false;
+            }
+
             const matchesMaterial = !materialFilter || transaction.materialName.toLowerCase().includes(materialFilter);
             const matchesType = !typeFilter || transaction.type === typeFilter;
             return matchesMaterial && matchesType;
@@ -177,7 +200,7 @@ const RawMaterials = {
         `).join('');
     },
 
-    addTransaction() {
+    async addTransaction() {
         const materialId = parseInt(document.getElementById('transaction-material').value);
         const type = document.getElementById('transaction-type').value;
         const quantity = parseFloat(document.getElementById('transaction-quantity').value);
@@ -188,45 +211,52 @@ const RawMaterials = {
             return;
         }
 
-        const material = Database.getById('rawMaterials', materialId);
+        const material = this.currentMaterials.find(m => m.id === materialId);
         if (!material) {
             Toast.error('Material no encontrado');
             return;
         }
 
-        // Calculate new stock
-        let newStock = material.stock;
-        if (type === 'Compra') {
-            newStock += quantity;
-        } else {
-            if (quantity > material.stock) {
-                Toast.error('Stock insuficiente');
-                return;
-            }
-            newStock -= quantity;
+        // Check if there's enough stock
+        if (quantity > material.stock) {
+            Toast.error('Stock insuficiente');
+            return;
         }
 
-        // Add transaction
-        Database.add('materialTransactions', {
-            materialId: material.id,
-            materialName: material.name,
-            type: type,
-            quantity: quantity,
-            notes: notes,
-            date: new Date().toISOString()
-        });
+        try {
+            // Create transaction via API (API will also update stock)
+            const response = await fetch('/api/material-transactions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({
+                    raw_material_id: materialId,
+                    type: type,
+                    quantity: quantity,
+                    notes: notes
+                })
+            });
 
-        // Update material stock
-        Database.update('rawMaterials', materialId, { stock: newStock });
+            const data = await response.json();
 
-        Toast.success('Transacción registrada exitosamente');
+            if (data.success) {
+                Toast.success('Transacción registrada exitosamente');
 
-        // Reset form
-        document.getElementById('transaction-form').reset();
+                // Reset form
+                document.getElementById('transaction-form').reset();
 
-        // Reload data
-        this.loadMaterials();
-        this.loadTransactions();
+                // Reload data
+                this.loadMaterials();
+                this.loadTransactions();
+            } else {
+                Toast.error(data.message || 'Error al registrar transacción');
+            }
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+            Toast.error('Error al registrar transacción en el servidor');
+        }
     },
 
     renderTransactionsTable() {
@@ -408,42 +438,35 @@ const RawMaterials = {
         }
     },
 
-    deleteTransaction(id) {
+    async deleteTransaction(id) {
         if (!confirm('¿Estás seguro de eliminar esta transacción? Esto revertirá el movimiento de stock.')) {
             return;
         }
 
-        const transaction = Database.getById('materialTransactions', id);
-        if (!transaction) {
-            Toast.error('Transacción no encontrada');
-            return;
-        }
+        try {
+            const response = await fetch(`/api/material-transactions/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
 
-        // Revert the stock change
-        const material = Database.getById('rawMaterials', transaction.materialId);
-        if (material) {
-            let newStock = material.stock;
+            const data = await response.json();
 
-            // Reverse the transaction effect
-            if (transaction.type === 'Compra') {
-                // If it was a purchase, subtract the quantity
-                newStock -= transaction.quantity;
+            if (data.success) {
+                Toast.success('Transacción eliminada exitosamente');
+
+                // Reload data
+                this.loadMaterials();
+                this.loadTransactions();
             } else {
-                // If it was a usage/output, add the quantity back
-                newStock += transaction.quantity;
+                Toast.error(data.message || 'Error al eliminar transacción');
             }
-
-            // Update material stock
-            Database.update('rawMaterials', transaction.materialId, { stock: newStock });
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            Toast.error('Error al eliminar transacción del servidor');
         }
-
-        // Delete the transaction
-        Database.delete('materialTransactions', id);
-        Toast.success('Transacción eliminada exitosamente');
-
-        // Reload data
-        this.loadMaterials();
-        this.loadTransactions();
     },
 
     render() {
