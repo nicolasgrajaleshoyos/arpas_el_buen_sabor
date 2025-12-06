@@ -17,4 +17,9 @@ class RawMaterial extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
 }

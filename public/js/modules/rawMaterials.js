@@ -2,11 +2,14 @@
 const RawMaterials = {
     currentMaterials: [],
     currentTransactions: [],
+    filteredTransactions: [],
+    currentSuppliers: [],
 
     init() {
         console.log('Inicializando Materia Prima...');
         this.loadMaterials();
         this.loadTransactions();
+        this.loadSuppliers();
         this.setupEventListeners();
     },
 
@@ -33,6 +36,16 @@ const RawMaterials = {
                 e.preventDefault();
                 this.addTransaction();
             });
+        }
+
+        // Filter inputs
+        const filterMaterial = document.getElementById('filter-material');
+        const filterType = document.getElementById('filter-type');
+        if (filterMaterial) {
+            filterMaterial.addEventListener('input', () => this.applyFilters());
+        }
+        if (filterType) {
+            filterType.addEventListener('change', () => this.applyFilters());
         }
     },
 
@@ -77,7 +90,49 @@ const RawMaterials = {
         this.currentTransactions = Database.getAll('materialTransactions').sort((a, b) =>
             new Date(b.date) - new Date(a.date)
         );
+        this.applyFilters();
+    },
+
+    applyFilters() {
+        const materialFilter = document.getElementById('filter-material')?.value.toLowerCase() || '';
+        const typeFilter = document.getElementById('filter-type')?.value || '';
+
+        this.filteredTransactions = this.currentTransactions.filter(transaction => {
+            const matchesMaterial = !materialFilter || transaction.materialName.toLowerCase().includes(materialFilter);
+            const matchesType = !typeFilter || transaction.type === typeFilter;
+            return matchesMaterial && matchesType;
+        });
+
         this.renderTransactionsTable();
+        this.updateTransactionTotal();
+    },
+
+    updateTransactionTotal() {
+        const totalElement = document.getElementById('transactions-total');
+        if (!totalElement) return;
+
+        // Calculate total based on filtered transactions
+        // For each transaction, we need to get the material price and multiply by quantity
+        let total = 0;
+        this.filteredTransactions.forEach(transaction => {
+            const material = Database.getById('rawMaterials', transaction.materialId);
+            if (material) {
+                total += transaction.quantity * material.price;
+            }
+        });
+
+        totalElement.textContent = '$' + total.toLocaleString();
+    },
+
+    async loadSuppliers() {
+        try {
+            const response = await fetch('/api/suppliers');
+            const data = await response.json();
+            this.currentSuppliers = data;
+        } catch (error) {
+            console.error('Error loading suppliers:', error);
+            Toast.error('Error al cargar proveedores del servidor');
+        }
     },
 
     loadMaterialOptions() {
@@ -179,9 +234,20 @@ const RawMaterials = {
         const tbody = document.getElementById('transactions-tbody');
         if (!tbody) return;
 
-        const recentTransactions = this.currentTransactions.slice(0, 50);
+        const transactionsToShow = this.filteredTransactions.slice(0, 50);
 
-        tbody.innerHTML = recentTransactions.map(transaction => `
+        if (transactionsToShow.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        No se encontraron transacciones
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = transactionsToShow.map(transaction => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${new Date(transaction.date).toLocaleString()}</td>
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${transaction.materialName}</td>
@@ -208,15 +274,25 @@ const RawMaterials = {
         const modal = document.getElementById('material-modal');
         const form = document.getElementById('material-form');
         const title = document.getElementById('material-modal-title');
+        const supplierSelect = document.getElementById('material-supplier');
 
         if (!modal || !form || !title) return;
 
         title.textContent = material ? 'Editar Insumo' : 'Nuevo Insumo';
 
+        // Populate suppliers dropdown
+        if (supplierSelect) {
+            supplierSelect.innerHTML = '<option value="">-- Selecciona un proveedor --</option>' +
+                this.currentSuppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        }
+
         if (material) {
+            if (supplierSelect && material.supplier_id) {
+                supplierSelect.value = material.supplier_id;
+            }
             document.getElementById('material-name').value = material.name;
             document.getElementById('material-stock').value = material.stock;
-            document.getElementById('material-min-stock').value = material.minStock;
+            document.getElementById('material-min-stock').value = material.min_stock;
             document.getElementById('material-unit').value = material.unit;
             document.getElementById('material-price').value = material.price;
         } else {
@@ -237,44 +313,97 @@ const RawMaterials = {
         this.editingId = null;
     },
 
-    saveMaterial() {
+    async saveMaterial() {
         const name = document.getElementById('material-name').value.trim();
         const stock = parseFloat(document.getElementById('material-stock').value);
         const minStock = parseFloat(document.getElementById('material-min-stock').value);
         const unit = document.getElementById('material-unit').value;
         const price = parseFloat(document.getElementById('material-price').value);
+        const supplierId = document.getElementById('material-supplier')?.value || null;
 
         if (!name || isNaN(stock) || isNaN(minStock) || !unit || isNaN(price)) {
             Toast.error('Por favor completa todos los campos correctamente');
             return;
         }
 
-        const materialData = { name, stock, minStock, unit, price };
+        const materialData = {
+            name,
+            stock,
+            min_stock: minStock,
+            unit,
+            price,
+            supplier_id: supplierId || null
+        };
 
-        if (this.editingId) {
-            Database.update('rawMaterials', this.editingId, materialData);
-            Toast.success('Insumo actualizado exitosamente');
-        } else {
-            Database.add('rawMaterials', materialData);
-            Toast.success('Insumo agregado exitosamente');
+        try {
+            let response;
+            if (this.editingId) {
+                response = await fetch(`/api/raw-materials/${this.editingId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
+                    body: JSON.stringify(materialData)
+                });
+            } else {
+                response = await fetch('/api/raw-materials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
+                    body: JSON.stringify(materialData)
+                });
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                Toast.success(data.message);
+                this.closeModal();
+                this.loadMaterials();
+                this.loadMaterialOptions();
+            } else {
+                Toast.error(data.message || 'Error al guardar insumo');
+            }
+        } catch (error) {
+            console.error('Error saving material:', error);
+            Toast.error('Error al guardar insumo en el servidor');
         }
-
-        this.closeModal();
-        this.loadMaterials();
-        this.loadMaterialOptions();
     },
 
-    deleteMaterial(id) {
-        if (confirm('¿Estás seguro de eliminar este insumo?')) {
-            Database.delete('rawMaterials', id);
-            Toast.success('Insumo eliminado exitosamente');
-            this.loadMaterials();
-            this.loadMaterialOptions();
+    async deleteMaterial(id) {
+        if (!confirm('¿Estás seguro de eliminar este insumo?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/raw-materials/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                Toast.success('Insumo eliminado exitosamente');
+                this.loadMaterials();
+                this.loadMaterialOptions();
+            } else {
+                Toast.error(data.message || 'Error al eliminar insumo');
+            }
+        } catch (error) {
+            console.error('Error deleting material:', error);
+            Toast.error('Error al eliminar insumo del servidor');
         }
     },
 
     editMaterial(id) {
-        const material = Database.getById('rawMaterials', id);
+        const material = this.currentMaterials.find(m => m.id === id);
         if (material) {
             this.showMaterialModal(material);
         }
@@ -342,7 +471,7 @@ const RawMaterials = {
                             Inventario
                         </button>
                         <button data-tab="transactions" class="py-4 px-1 border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">
-                            Movimientos
+                            Salidas
                         </button>
                         <a href="/purchases" class="py-4 px-1 border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">
                             Compras
@@ -379,7 +508,7 @@ const RawMaterials = {
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <!-- Transaction Form -->
                         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 transition-colors">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registrar Movimiento</h3>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Registrar Salida</h3>
                             
                             <form id="transaction-form" class="space-y-4">
                                 <div>
@@ -390,7 +519,7 @@ const RawMaterials = {
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Movimiento</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Salida</label>
                                     <select id="transaction-type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                                         <option value="">Selecciona tipo...</option>
                                         <option value="Producción">Uso en Producción</option>
@@ -410,14 +539,37 @@ const RawMaterials = {
                                 </div>
                                 
                                 <button type="submit" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">
-                                    Registrar Movimiento
+                                    Registrar Salida
                                 </button>
                             </form>
                         </div>
                         
                         <!-- Transactions History -->
                         <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 transition-colors">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Historial de Movimientos</h3>
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Historial de Salidas</h3>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm text-gray-600 dark:text-gray-400">Total:</span>
+                                    <span id="transactions-total" class="text-xl font-bold text-emerald-600 dark:text-emerald-400">$0</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Filter Bar -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Buscar Material</label>
+                                    <input type="text" id="filter-material" placeholder="Nombre del material..." class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Salida</label>
+                                    <select id="filter-type" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                        <option value="">Todos los tipos</option>
+                                        <option value="Producción">Uso en Producción</option>
+                                        <option value="Desperdicio">Desperdicio</option>
+                                        <option value="Ajuste">Ajuste de Inventario</option>
+                                    </select>
+                                </div>
+                            </div>
                             
                             <div class="overflow-x-auto">
                                 <table class="w-full">
@@ -453,6 +605,13 @@ const RawMaterials = {
                         </div>
                         
                         <form id="material-form" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Seleccionar Proveedor (Opcional)</label>
+                                <select id="material-supplier" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">-- Selecciona un proveedor --</option>
+                                </select>
+                            </div>
+                            
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nombre del Insumo</label>
                                 <input type="text" id="material-name" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>

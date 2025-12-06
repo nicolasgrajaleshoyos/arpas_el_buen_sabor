@@ -33,6 +33,8 @@ Route::post('/api/suppliers', [App\Http\Controllers\Api\SupplierController::clas
 Route::put('/api/suppliers/{id}', [App\Http\Controllers\Api\SupplierController::class, 'update'])->name('api.suppliers.update');
 Route::delete('/api/suppliers/{id}', [App\Http\Controllers\Api\SupplierController::class, 'destroy'])->name('api.suppliers.destroy');
 
+Route::get('/api/products', [App\Http\Controllers\Api\ProductController::class, 'index'])->name('api.products.index');
+
 Route::get('/api/raw-materials', [App\Http\Controllers\Api\RawMaterialController::class, 'index'])->name('api.raw-materials.index');
 Route::post('/api/raw-materials', [App\Http\Controllers\Api\RawMaterialController::class, 'store'])->name('api.raw-materials.store');
 Route::put('/api/raw-materials/{id}', [App\Http\Controllers\Api\RawMaterialController::class, 'update'])->name('api.raw-materials.update');

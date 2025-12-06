@@ -25,7 +25,7 @@
                 Inventario
             </a>
             <a href="{{ route('raw-materials') }}#movimientos" class="py-4 px-1 border-b-2 border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors">
-                Movimientos
+                Salidas
             </a>
             <a href="{{ route('purchases.index') }}" class="py-4 px-1 border-b-2 border-emerald-500 text-emerald-600 dark:text-emerald-400 font-medium transition-colors">
                 Compras

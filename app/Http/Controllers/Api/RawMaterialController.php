@@ -10,7 +10,7 @@ class RawMaterialController extends Controller
 {
     public function index()
     {
-        return response()->json(RawMaterial::with('supplier')->get());
+        return response()->json(RawMaterial::with(['supplier', 'product'])->get());
     }
 
     public function store(Request $request)
@@ -23,6 +23,7 @@ class RawMaterialController extends Controller
                 'min_stock' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
                 'supplier_id' => 'nullable|exists:suppliers,id',
+                'product_id' => 'nullable|exists:products,id',
             ]);
 
             $material = RawMaterial::create($validated);
@@ -53,6 +54,7 @@ class RawMaterialController extends Controller
                 'min_stock' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
                 'supplier_id' => 'nullable|exists:suppliers,id',
+                'product_id' => 'nullable|exists:products,id',
             ]);
 
             $material->update($validated);
