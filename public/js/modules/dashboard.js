@@ -5,9 +5,6 @@ const Dashboard = {
         distribution: null
     },
 
-    currentMonth: new Date().getMonth(),
-    currentYear: new Date().getFullYear(),
-
     init() {
         console.log('Inicializando Dashboard...');
         this.setupEventListeners();
@@ -15,232 +12,157 @@ const Dashboard = {
     },
 
     setupEventListeners() {
-        // Month selector
-        const monthSelect = document.getElementById('month-select');
-        const yearSelect = document.getElementById('year-select');
-
-        if (monthSelect) {
-            monthSelect.addEventListener('change', () => {
-                this.currentMonth = parseInt(monthSelect.value);
-                this.loadData();
-            });
-        }
-
-        if (yearSelect) {
-            yearSelect.addEventListener('change', () => {
-                this.currentYear = parseInt(yearSelect.value);
-                this.loadData();
-            });
-        }
+        // Listen for Global Period changes
+        window.addEventListener('period-changed', (e) => {
+            this.loadData();
+        });
     },
 
-    loadData() {
-        this.updateKPIs();
-        this.updateCharts();
+    async loadData() {
+        try {
+            // Fetch all data in parallel
+            const [salesRes, employeesRes, payrollsRes] = await Promise.all([
+                fetch('/api/sales'),
+                fetch('/api/employees'),
+                fetch('/api/payrolls')
+            ]);
+
+            const sales = await salesRes.json();
+            const employees = await employeesRes.json();
+            const payrolls = await payrollsRes.json();
+
+            // Store for local usage if needed, or just pass to update functions
+            this.salesData = sales;
+            this.employeesData = employees;
+            this.payrollsData = payrolls;
+
+            this.updateKPIs();
+            this.updateCharts();
+
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+            // Fallback to local storage if API fails? Or just show error?
+            // For now, let's try to load from DB.js as fallback or mixed? 
+            // Better to stick to API if we committed to it.
+        }
     },
 
     updateKPIs() {
-        const stats = Database.getStats();
+        const allSales = this.salesData || [];
+        const allPayrolls = this.payrollsData || [];
 
-        // Update KPI cards
-        document.getElementById('kpi-inventory').textContent = '$' + stats.inventoryValue.toLocaleString();
-        document.getElementById('kpi-sales').textContent = '$' + stats.monthlySales.toLocaleString();
-        document.getElementById('kpi-payroll').textContent = '$' + stats.monthlyPayroll.toLocaleString();
-        document.getElementById('kpi-products').textContent = stats.totalProducts;
+        // Filter Data by Global Period
+        let filteredSales = allSales;
+        let filteredPayrolls = allPayrolls;
+
+        if (typeof GlobalPeriod !== 'undefined') {
+            filteredSales = allSales.filter(s => {
+                const date = new Date(s.sale_date || s.date); // Handle different field names
+                return GlobalPeriod.isDateInPeriod(date);
+            });
+
+            filteredPayrolls = allPayrolls.filter(p => {
+                // Payrolls might have month/year fields directly
+                const m = parseInt(document.getElementById('global-month').value);
+                const y = parseInt(document.getElementById('global-year').value);
+                return p.month == m && p.year == y;
+            });
+        }
+
+        // 1. Calculate Total Sales (Revenue)
+        // Valid sales: status != 'returned'
+        const validSales = filteredSales.filter(s => s.status !== 'returned');
+        const revenue = validSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
+
+        // 2. Calculate Returns (Losses)
+        const returns = filteredSales.filter(s => s.status === 'returned');
+        const returnLoss = returns.reduce((sum, s) => sum + parseFloat(s.total), 0);
+
+        // 3. Operating Expenses = Payroll + Returns (approx)
+        const payrollCost = filteredPayrolls.reduce((sum, p) => sum + parseFloat(p.total), 0);
+        const totalExpenses = payrollCost + returnLoss;
+
+        // 4. Net Profit
+        const netProfit = revenue - totalExpenses;
+
+        // Update DOM
+        this.setKPI('kpi-sales', revenue);
+        this.setKPI('kpi-expenses', totalExpenses);
+        this.setKPI('kpi-profit', netProfit);
+        this.setKPI('kpi-returns', returnLoss);
+
+        // Color profit
+        const profitEl = document.getElementById('kpi-profit');
+        if (profitEl) {
+            profitEl.className = `text-2xl font-bold mt-2 ${netProfit >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600'}`;
+        }
+    },
+
+    setKPI(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '$' + value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     },
 
     updateCharts() {
         this.updateSalesChart();
-        this.updateDistributionChart();
+        this.updateReturnsChart();
+    },
+
+    getMonthlyData(type = 'sales') {
+        const year = parseInt(document.getElementById('global-year').value);
+        const data = new Array(12).fill(0);
+
+        // Fetch all relevant data
+        // Fetch all relevant data
+        const allItems = this.salesData || [];
+
+        allItems.forEach(item => {
+            const date = new Date(item.sale_date || item.date);
+            if (date.getFullYear() === year) {
+                const month = date.getMonth(); // 0-11
+
+                if (type === 'sales' && item.status !== 'returned') {
+                    data[month] += parseFloat(item.total);
+                } else if (type === 'returns' && item.status === 'returned') {
+                    data[month] += parseFloat(item.total);
+                }
+            }
+        });
+
+        return data;
     },
 
     updateSalesChart() {
-        const sales = Database.getAll('sales');
+        const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const data = this.getMonthlyData('sales');
 
-        // Filter by selected month/year
-        const filteredSales = sales.filter(s => {
-            const date = new Date(s.date);
-            return date.getMonth() === this.currentMonth && date.getFullYear() === this.currentYear;
-        });
-
-        // Group by day
-        const dailySales = {};
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-
-        // Initialize all days
-        for (let i = 1; i <= daysInMonth; i++) {
-            dailySales[i] = 0;
-        }
-
-        // Sum sales by day
-        filteredSales.forEach(sale => {
-            const day = new Date(sale.date).getDate();
-            dailySales[day] += sale.total;
-        });
-
-        const labels = Object.keys(dailySales);
-        const data = Object.values(dailySales);
-
-        // Destroy previous chart
-        if (this.charts.sales) {
-            ChartUtils.destroyChart(this.charts.sales);
-        }
-
-        // Create new chart
-        this.charts.sales = ChartUtils.createBarChart('sales-chart', labels, data, 'Ventas Diarias');
+        if (this.charts.sales) ChartUtils.destroyChart(this.charts.sales);
+        this.charts.sales = ChartUtils.createBarChart('sales-chart', labels, data, 'Ventas del Año');
     },
 
-    updateDistributionChart() {
-        const sales = Database.getAll('sales');
+    updateReturnsChart() {
+        const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const data = this.getMonthlyData('returns');
 
-        // Filter by selected month/year
-        const filteredSales = sales.filter(s => {
-            const date = new Date(s.date);
-            return date.getMonth() === this.currentMonth && date.getFullYear() === this.currentYear;
-        });
+        // We can reusecreateBarChart but maybe with a red color theme?
+        // ChartUtils doesn't accept color param yet, but let's try or modify ChartUtils later if needed.
+        // For now, standard green is fine or I can just use distribution chart ID for this if I replace it.
+        // User asked for "Returns per Month", replacing Distribution? Or "add"?
+        // The layout has 2 slots. Let's replace "Distribution" with "Returns Trend" as requested contextually.
+        // I need to rename the canvas ID in render() or just use 'distribution-chart' ID but render a bar chart.
 
-        // Group by product
-        const productSales = {};
+        if (this.charts.distribution) ChartUtils.destroyChart(this.charts.distribution);
+        // Using createBarChart for returns too
+        this.charts.distribution = ChartUtils.createBarChart('distribution-chart', labels, data, 'Devoluciones del Año');
 
-        filteredSales.forEach(sale => {
-            if (!productSales[sale.productName]) {
-                productSales[sale.productName] = 0;
-            }
-            productSales[sale.productName] += sale.quantity;
-        });
-
-        const labels = Object.keys(productSales);
-        const data = Object.values(productSales);
-
-        // Destroy previous chart
-        if (this.charts.distribution) {
-            ChartUtils.destroyChart(this.charts.distribution);
+        // Hack to change color if possible after creation, or just accept green for now.
+        // To make it red, I should ideally update ChartUtils or manually create chart here.
+        if (this.charts.distribution && this.charts.distribution.data.datasets[0]) {
+            this.charts.distribution.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.8)'; // Red
+            this.charts.distribution.data.datasets[0].borderColor = 'rgba(239, 68, 68, 1)';
+            this.charts.distribution.update();
         }
-
-        // Create new chart
-        this.charts.distribution = ChartUtils.createPieChart('distribution-chart', labels, data, 'Distribución de Ventas');
-    },
-
-    render() {
-        const months = [
-            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-
-        const startYear = 2023;
-        const endYear = 2050;
-        const years = [];
-        for (let year = startYear; year <= endYear; year++) {
-            years.push(year);
-        }
-
-        return `
-            <div class="space-y-6">
-                <!-- Header -->
-                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-                        <p class="text-gray-600 mt-1">Resumen general del negocio</p>
-                    </div>
-                    
-                    <!-- Date Filters -->
-                    <div class="flex gap-3">
-                        <select id="month-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                            ${months.map((month, index) =>
-            `<option value="${index}" ${index === this.currentMonth ? 'selected' : ''}>${month}</option>`
-        ).join('')}
-                        </select>
-                        
-                        <select id="year-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                            ${years.map(year =>
-            `<option value="${year}" ${year === this.currentYear ? 'selected' : ''}>${year}</option>`
-        ).join('')}
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- KPI Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <!-- Inventory Value -->
-                    <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 font-medium">Valor Inventario</p>
-                                <p id="kpi-inventory" class="text-2xl font-bold text-gray-900 mt-2">$0</p>
-                            </div>
-                            <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Monthly Sales -->
-                    <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 font-medium">Ventas del Mes</p>
-                                <p id="kpi-sales" class="text-2xl font-bold text-gray-900 mt-2">$0</p>
-                            </div>
-                            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Monthly Payroll -->
-                    <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 font-medium">Nómina Mensual</p>
-                                <p id="kpi-payroll" class="text-2xl font-bold text-gray-900 mt-2">$0</p>
-                            </div>
-                            <div class="w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Total Products -->
-                    <div class="bg-white rounded-xl shadow-soft p-6 card-hover">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-600 font-medium">Productos Únicos</p>
-                                <p id="kpi-products" class="text-2xl font-bold text-gray-900 mt-2">0</p>
-                            </div>
-                            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Sales Chart -->
-                    <div class="bg-white rounded-xl shadow-soft p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Ventas Diarias</h3>
-                        <div class="chart-container">
-                            <canvas id="sales-chart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Distribution Chart -->
-                    <div class="bg-white rounded-xl shadow-soft p-6">
-                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Distribución de Ventas</h3>
-                        <div class="chart-container">
-                            <canvas id="distribution-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
     }
 };
+
+

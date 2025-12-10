@@ -250,9 +250,9 @@
         </aside>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto lg:ml-0">
-            <!-- Mobile Header -->
-            <div class="lg:hidden bg-white dark:bg-gray-800 shadow-sm p-4 flex items-center justify-between sticky top-0 z-20 transition-colors">
+        <main class="flex-1 flex flex-col overflow-hidden lg:ml-0">
+             <!-- Mobile Header -->
+             <div class="lg:hidden bg-white dark:bg-gray-800 shadow-sm p-4 flex items-center justify-between z-20 transition-colors">
                 <div class="flex items-center gap-2">
                     <img src="{{ asset('images/logo.jpeg') }}" alt="Logo" class="w-8 h-8 rounded-full object-cover">
                     <h1 class="text-xl font-bold text-emerald-600 dark:text-emerald-500">Arepas</h1>
@@ -263,9 +263,46 @@
                     </svg>
                 </button>
             </div>
+
+            <!-- GLOBAL PERIOD FILTER BAR -->
+            <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-4 z-10 transition-colors shadow-sm">
+                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="font-medium text-sm hidden md:inline">Filtrar por Periodo:</span>
+                </div>
+                
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <select id="global-month" class="flex-1 md:w-40 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <option value="0">Enero</option>
+                        <option value="1">Febrero</option>
+                        <option value="2">Marzo</option>
+                        <option value="3">Abril</option>
+                        <option value="4">Mayo</option>
+                        <option value="5">Junio</option>
+                        <option value="6">Julio</option>
+                        <option value="7">Agosto</option>
+                        <option value="8">Septiembre</option>
+                        <option value="9">Octubre</option>
+                        <option value="10">Noviembre</option>
+                        <option value="11">Diciembre</option>
+                    </select>
+                    
+                    <select id="global-year" class="flex-1 md:w-32 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        <!-- Years populated by JS -->
+                    </select>
+
+                    <button id="reset-period-btn" class="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Ir al Mes Actual">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
             
-            <!-- Content Area -->
-            <div class="p-4 md:p-6">
+            <!-- Content Area (Scrollable) -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-6" id="main-scroll-container">
                 @yield('content')
             </div>
         </main>
@@ -300,6 +337,94 @@
                 }
             }
         });
+
+        // Global Period Management
+        const GlobalPeriod = {
+            currentDate: new Date(),
+            
+            init() {
+                this.monthSelect = document.getElementById('global-month');
+                this.yearSelect = document.getElementById('global-year');
+                
+                if (!this.monthSelect || !this.yearSelect) return;
+
+                this.populateYears();
+                this.loadSavedPeriod();
+                this.setupListeners();
+            },
+
+            populateYears() {
+                const currentYear = new Date().getFullYear();
+                const startYear = 2024; // Project start
+                const endYear = currentYear + 2; 
+
+                this.yearSelect.innerHTML = '';
+                for (let y = startYear; y <= endYear; y++) {
+                    const option = document.createElement('option');
+                    option.value = y;
+                    option.textContent = y;
+                    this.yearSelect.appendChild(option);
+                }
+            },
+
+            loadSavedPeriod() {
+                // Default to current month/year if not saved
+                const storedMonth = localStorage.getItem('global_month');
+                const storedYear = localStorage.getItem('global_year');
+
+                if (storedMonth !== null && storedYear !== null) {
+                    this.monthSelect.value = storedMonth;
+                    this.yearSelect.value = storedYear;
+                } else {
+                    this.resetToCurrent();
+                }
+            },
+
+            resetToCurrent() {
+                this.monthSelect.value = this.currentDate.getMonth();
+                this.yearSelect.value = this.currentDate.getFullYear();
+                this.saveAndNotify();
+            },
+
+            setupListeners() {
+                this.monthSelect.addEventListener('change', () => this.saveAndNotify());
+                this.yearSelect.addEventListener('change', () => this.saveAndNotify());
+                
+                document.getElementById('reset-period-btn')?.addEventListener('click', () => {
+                   this.resetToCurrent(); 
+                   Toast.info('Restaurado al periodo actual');
+                });
+            },
+
+            saveAndNotify() {
+                const month = parseInt(this.monthSelect.value);
+                const year = parseInt(this.yearSelect.value);
+
+                localStorage.setItem('global_month', month);
+                localStorage.setItem('global_year', year);
+
+                // Dispatch Custom Event for Modules
+                const event = new CustomEvent('period-changed', {
+                    detail: { month, year }
+                });
+                window.dispatchEvent(event);
+            },
+            
+            // Helper for modules to check if a date is in range
+            isDateInPeriod(dateString) { // Supports ISO date string or Date object
+                const date = new Date(dateString);
+                const selectedMonth = parseInt(this.monthSelect.value);
+                const selectedYear = parseInt(this.yearSelect.value);
+                
+                return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+            }
+        };
+
+        // Initialize on Load
+        document.addEventListener('DOMContentLoaded', () => {
+            GlobalPeriod.init();
+        });
+
 
         function logout() {
             Swal.fire({

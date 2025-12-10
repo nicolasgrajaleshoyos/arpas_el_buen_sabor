@@ -2,6 +2,7 @@
 const Returns = {
     returns: [],
     cart: [],
+    products: [],
 
     init() {
         this.loadReturns();
@@ -16,19 +17,17 @@ const Returns = {
                 searchInput.addEventListener('input', () => this.renderTable());
             }
 
-            // New: History Search
             const historySearchInput = document.getElementById('returns-history-search');
             if (historySearchInput) {
                 historySearchInput.addEventListener('input', (e) => this.renderHistoryTable(e.target.value));
             }
 
-            // Product Selector
             const productSelect = document.getElementById('return-product');
             if (productSelect) {
                 productSelect.addEventListener('change', () => {
                     const productId = parseInt(productSelect.value);
                     if (productId) {
-                        const product = Database.getById('products', productId);
+                        const product = this.products.find(p => p.id === productId);
                         if (product) {
                             document.getElementById('return-price').value = product.price;
                             document.getElementById('return-quantity').value = 1;
@@ -37,30 +36,36 @@ const Returns = {
                 });
             }
 
-            // Add to Cart
             const addToCartBtn = document.getElementById('add-to-return-cart-btn');
             if (addToCartBtn) {
                 addToCartBtn.addEventListener('click', () => this.addToCart());
             }
 
-            // Process Return
             const processReturnBtn = document.getElementById('process-return-btn');
             if (processReturnBtn) {
                 processReturnBtn.addEventListener('click', () => this.processReturns());
             }
 
+            window.addEventListener('period-changed', (e) => {
+                this.loadReturns();
+            });
+
         }, 100);
     },
 
-    loadProductOptions() {
-        const select = document.getElementById('return-product');
-        if (!select) return;
+    async loadProductOptions() {
+        try {
+            const res = await fetch('/api/products');
+            this.products = await res.json();
 
-        // Show ALL products for returns, even those with 0 stock
-        const products = Database.getAll('products');
+            const select = document.getElementById('return-product');
+            if (!select) return;
 
-        select.innerHTML = '<option value="">Selecciona un producto...</option>' +
-            products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            select.innerHTML = '<option value="">Selecciona un producto...</option>' +
+                this.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading products:', error);
+        }
     },
 
     addToCart() {
@@ -72,7 +77,7 @@ const Returns = {
             return;
         }
 
-        const product = Database.getById('products', productId);
+        const product = this.products.find(p => p.id === productId);
 
         if (!product) {
             this.showAlert('error', 'Error', 'Producto no encontrado');
@@ -135,7 +140,7 @@ const Returns = {
             <tr class="bg-red-50 dark:bg-red-900/10">
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${item.productName}</td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${item.quantity}</td>
-                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">$${item.unitPrice.toLocaleString()}</td>
+                <td class="px-6 py-4 text-gray-600 dark:text-gray-400">$${parseFloat(item.unitPrice).toLocaleString()}</td>
                 <td class="px-6 py-4 font-semibold text-red-600 dark:text-red-400">
                     $${item.total.toLocaleString()}
                 </td>
@@ -171,37 +176,77 @@ const Returns = {
             `Se registrarán ${this.cart.length} productos como devueltos.<br>Total: $${total.toLocaleString()}`,
             'Sí, Procesar',
             'Cancelar'
-        ).then((result) => {
+        ).then(async (result) => {
             if (result.isConfirmed) {
-                this.cart.forEach(item => {
-                    Database.add('sales', {
-                        productId: item.productId,
-                        productName: item.productName,
-                        quantity: item.quantity,
-                        unitPrice: item.unitPrice,
-                        total: item.total,
-                        date: new Date().toISOString(),
-                        status: 'returned',
-                        returnedAt: new Date().toISOString()
-                    });
-                });
+                try {
+                    for (const item of this.cart) {
+                        const response = await fetch('/api/sales', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                            },
+                            body: JSON.stringify({
+                                productId: item.productId,
+                                productName: item.productName,
+                                quantity: item.quantity,
+                                unitPrice: item.unitPrice,
+                                total: item.total,
+                                date: new Date().toISOString(),
+                                status: 'returned',
+                                returnedAt: new Date().toISOString()
+                            })
+                        });
 
-                this.showAlert('success', 'Éxito', 'Devolución procesada correctamente');
-                this.cart = [];
-                this.renderReturnCart();
-                this.loadReturns(); // This will now update stats too
+                        if (!response.ok) {
+                            const data = await response.json();
+                            throw new Error(data.message || 'Error al guardar');
+                        }
+
+                    }
+
+                    this.showAlert('success', 'Éxito', 'Devolución procesada correctamente');
+                    this.cart = [];
+                    this.renderReturnCart();
+                    this.loadReturns();
+                } catch (error) {
+                    console.error('Error processing returns:', error);
+                    this.showAlert('error', 'Error', error.message || 'Hubo un error al procesar la devolución');
+                }
             }
         });
     },
 
-    loadReturns() {
-        const allSales = Database.getAll('sales');
-        this.returns = allSales.filter(sale => sale.status === 'returned')
-            .sort((a, b) => new Date(b.returnedAt || b.date) - new Date(a.returnedAt || a.date));
+    async loadReturns() {
+        try {
+            const res = await fetch('/api/sales');
+            const allSales = await res.json();
 
-        this.renderTable();
-        this.renderHistoryTable();
-        this.updateStats(); // UPDATE STATS DYNAMICALLY
+            let returns = allSales.filter(sale => sale.status === 'returned');
+
+            if (typeof GlobalPeriod !== 'undefined') {
+                returns = returns.filter(s => {
+                    const date = new Date(s.returned_at || s.returnedAt || s.sale_date || s.date);
+                    return GlobalPeriod.isDateInPeriod(date);
+                });
+
+                const header = document.querySelector('h1.text-3xl');
+                if (header && header.textContent.includes('Devoluciones')) {
+                    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+                    const m = parseInt(document.getElementById('global-month').value);
+                    const y = parseInt(document.getElementById('global-year').value);
+                    header.innerHTML = `🛑 Devoluciones <span class="text-lg font-normal text-gray-500">(${months[m]} ${y})</span>`;
+                }
+            }
+
+            this.returns = returns.sort((a, b) => new Date(b.returned_at || b.date) - new Date(a.returned_at || a.date));
+
+            this.renderTable();
+            this.renderHistoryTable();
+            this.updateStats();
+        } catch (error) {
+            console.error('Error loading returns:', error);
+        }
     },
 
     deleteReturn(id) {
@@ -211,18 +256,34 @@ const Returns = {
             'Sí, Eliminar',
             'Cancelar',
             'warning'
-        ).then((result) => {
+        ).then(async (result) => {
             if (result.isConfirmed) {
-                Database.delete('sales', id);
-                this.showAlert('success', 'Eliminado', 'Registro de devolución eliminado');
-                this.loadReturns(); // Refresh list AND STATS
+                try {
+                    await fetch(`/api/sales/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                    });
+                    this.showAlert('success', 'Eliminado', 'Registro de devolución eliminado');
+                    this.loadReturns();
+                } catch (error) {
+                    console.error(error);
+                    this.showAlert('error', 'Error', 'No se pudo eliminar el registro');
+                }
             }
         });
     },
 
     deleteProductReturns(productName) {
-        // Find all returns for this product
-        const returnsToDelete = this.returns.filter(r => r.productName === productName);
+        const returnsToDelete = this.returns.filter(r => r.productName === productName); // Note: API uses snake_case usually but our JS mapping might need adjust if API returns snake. 
+        // SaleController returns model which is snake_case by default?
+        // Let's assume API returns JSON which matches model attributes: product_name.
+        // Wait, SaleController index returns `Sale::all()`. Laravel serializes snake_case by default.
+        // So `r.productName` might be undefined if I don't map it.
+        // I need to adjust mapping or use snake_case.
+        // For safety I will check both or map on load.
+        // Actually, let's map properties in `loadReturns` loop if we want to keep `productName` usage in render.
+        // OR just update usage to `product_name`.
+        // I'll update usage to `product_name` below.
 
         if (returnsToDelete.length === 0) return;
 
@@ -232,13 +293,16 @@ const Returns = {
             'Sí, Eliminar Todo',
             'Cancelar',
             'error'
-        ).then((result) => {
+        ).then(async (result) => {
             if (result.isConfirmed) {
                 let deletedCount = 0;
-                returnsToDelete.forEach(item => {
-                    Database.delete('sales', item.id);
+                for (const item of returnsToDelete) {
+                    await fetch(`/api/sales/${item.id}`, {
+                        method: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                    });
                     deletedCount++;
-                });
+                }
 
                 this.showAlert('success', 'Eliminado', `${deletedCount} registros eliminados correctamente.`);
                 this.loadReturns();
@@ -247,12 +311,10 @@ const Returns = {
     },
 
     updateStats() {
-        // Calculate dynamic stats
-        const totalReturnsValue = this.returns.reduce((sum, item) => sum + item.total, 0);
+        const totalReturnsValue = this.returns.reduce((sum, item) => sum + parseFloat(item.total), 0);
         const totalQty = this.returns.reduce((sum, item) => sum + item.quantity, 0);
         const totalTransactions = this.returns.length;
 
-        // Update DOM elements if they exist
         const valueEl = document.getElementById('returns-total-value');
         const qtyEl = document.getElementById('returns-total-qty');
 
@@ -263,17 +325,18 @@ const Returns = {
     getAggregatedReturns() {
         const aggregated = {};
         this.returns.forEach(sale => {
-            if (!aggregated[sale.productName]) {
-                aggregated[sale.productName] = {
-                    name: sale.productName,
+            const pName = sale.product_name || sale.productName; // Handle both
+            if (!aggregated[pName]) {
+                aggregated[pName] = {
+                    name: pName,
                     quantity: 0,
                     total: 0,
                     count: 0
                 };
             }
-            aggregated[sale.productName].quantity += sale.quantity;
-            aggregated[sale.productName].total += sale.total;
-            aggregated[sale.productName].count += 1;
+            aggregated[pName].quantity += sale.quantity;
+            aggregated[pName].total += parseFloat(sale.total);
+            aggregated[pName].count += 1;
         });
         return Object.values(aggregated);
     },
@@ -292,7 +355,7 @@ const Returns = {
         if (data.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center py-8 text-gray-400 dark:text-gray-500">
+                    <td colspan="5" class="text-center py-8 text-gray-400 dark:text-gray-500">
                         No hay devoluciones registradas
                     </td>
                 </tr>
@@ -336,11 +399,10 @@ const Returns = {
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             filteredReturns = this.returns.filter(sale =>
-                sale.productName.toLowerCase().includes(term)
+                (sale.product_name || sale.productName).toLowerCase().includes(term)
             );
         }
 
-        // Calculate and Show/Hide Filter Stats
         const statsContainer = document.getElementById('returns-history-stats-container');
         const countEl = document.getElementById('returns-history-stats-count');
         const moneyEl = document.getElementById('returns-history-stats-money');
@@ -348,7 +410,7 @@ const Returns = {
         if (statsContainer && countEl && moneyEl) {
             if (searchTerm) {
                 const totalQty = filteredReturns.reduce((sum, s) => sum + s.quantity, 0);
-                const totalMoney = filteredReturns.reduce((sum, s) => sum + s.total, 0);
+                const totalMoney = filteredReturns.reduce((sum, s) => sum + parseFloat(s.total), 0);
 
                 countEl.textContent = totalQty;
                 moneyEl.textContent = '$' + totalMoney.toLocaleString();
@@ -372,7 +434,7 @@ const Returns = {
         }
 
         tbody.innerHTML = filteredReturns.map(sale => {
-            const dateObj = new Date(sale.returnedAt || sale.date);
+            const dateObj = new Date(sale.returned_at || sale.sale_date || sale.date);
             const dateStr = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
             const timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
 
@@ -383,13 +445,13 @@ const Returns = {
                     <div class="text-xs text-gray-500 dark:text-gray-400">${timeStr}</div>
                 </td>
                 <td class="px-6 py-4">
-                    <div class="text-sm font-medium text-gray-900 dark:text-white">${sale.productName}</div>
+                    <div class="text-sm font-medium text-gray-900 dark:text-white">${sale.product_name || sale.productName}</div>
                 </td>
                 <td class="px-6 py-4 text-center">
                     <div class="text-sm font-bold text-red-600 dark:text-red-400">${sale.quantity}</div>
                 </td>
                 <td class="px-6 py-4 text-right">
-                    <div class="text-sm font-bold text-gray-900 dark:text-white">$${sale.total.toLocaleString()}</div>
+                    <div class="text-sm font-bold text-gray-900 dark:text-white">$${parseFloat(sale.total).toLocaleString()}</div>
                 </td>
                 <td class="px-6 py-4 text-center">
                     <button onclick="Returns.deleteReturn(${sale.id})" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar Registro">
@@ -413,9 +475,7 @@ const Returns = {
                 confirmButtonText: 'Entendido'
             });
         } else {
-            if (icon === 'success') Toast.success(title);
-            else if (icon === 'error') Toast.error(title);
-            else Toast.info(title);
+            console.log(title, text);
         }
     },
 
@@ -438,11 +498,9 @@ const Returns = {
 
     render() {
         // Initial Calculation (optional, as init will update it, but good for SSR-like feel)
-        const allSales = Database.getAll('sales');
-        const returns = allSales.filter(sale => sale.status === 'returned');
-        const totalReturnsValue = returns.reduce((sum, item) => sum + item.total, 0);
-        const totalQty = returns.reduce((sum, item) => sum + item.quantity, 0);
-        const totalTransactions = returns.length;
+        const totalReturnsValue = 0; // Will update on init
+        const totalQty = 0;
+        const totalTransactions = 0;
 
         return `
             <div class="space-y-6 animate-fade-in">

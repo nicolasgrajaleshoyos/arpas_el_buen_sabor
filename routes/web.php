@@ -36,7 +36,7 @@ Route::post('/api/suppliers', [App\Http\Controllers\Api\SupplierController::clas
 Route::put('/api/suppliers/{id}', [App\Http\Controllers\Api\SupplierController::class, 'update'])->name('api.suppliers.update');
 Route::delete('/api/suppliers/{id}', [App\Http\Controllers\Api\SupplierController::class, 'destroy'])->name('api.suppliers.destroy');
 
-Route::get('/api/products', [App\Http\Controllers\Api\ProductController::class, 'index'])->name('api.products.index');
+Route::apiResource('api/products', App\Http\Controllers\Api\ProductController::class);
 
 Route::get('/api/raw-materials', [App\Http\Controllers\Api\RawMaterialController::class, 'index'])->name('api.raw-materials.index');
 Route::post('/api/raw-materials', [App\Http\Controllers\Api\RawMaterialController::class, 'store'])->name('api.raw-materials.store');
@@ -51,3 +51,5 @@ Route::delete('/api/material-transactions/{id}', [App\Http\Controllers\Api\Mater
 Route::apiResource('api/employees', App\Http\Controllers\Api\EmployeeController::class);
 Route::apiResource('api/employee-advances', App\Http\Controllers\Api\EmployeeAdvanceController::class);
 Route::apiResource('api/payrolls', App\Http\Controllers\Api\PayrollController::class);
+Route::apiResource('api/sales', App\Http\Controllers\Api\SaleController::class);
+Route::apiResource('api/inventory-movements', App\Http\Controllers\Api\InventoryMovementController::class);

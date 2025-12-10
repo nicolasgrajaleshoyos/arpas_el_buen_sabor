@@ -4,10 +4,10 @@ const Inventory = {
     currentProducts: [],
     movements: [], // Store history
     editingId: null,
-    replenishId: null, // For tracking which product is being replenished
+    replenishId: null,
 
     init() {
-        console.log('Inicializando Inventario...');
+        console.log('Inicializando Inventario (API)...');
         this.loadProducts();
         this.loadHistory(); // Load history on init
         this.setupEventListeners();
@@ -46,35 +46,55 @@ const Inventory = {
                 this.saveReplenishment();
             };
         }
+
+        // Global Period Filter
+        window.addEventListener('period-changed', (e) => {
+            this.loadHistory();
+        });
     },
 
-    loadProducts() {
-        this.currentProducts = Database.getAll('products');
-        this.renderProductsTable();
+    async loadProducts() {
+        try {
+            const res = await fetch('/api/products');
+            this.currentProducts = await res.json();
+            this.renderProductsTable();
+        } catch (error) {
+            console.error('Error loading products:', error);
+            Toast.error('Error cargando productos');
+        }
     },
 
-    loadHistory() {
-        // Load movements from database, default to empty if not exists
-        this.movements = Database.getAll('inventory_movements') || [];
-        // Sort by date desc
-        this.movements.sort((a, b) => new Date(b.date) - new Date(a.date));
-        this.renderHistoryTable();
+    async loadHistory() {
+        try {
+            const res = await fetch('/api/inventory-movements');
+            this.movements = await res.json();
+            this.renderHistoryTable();
+        } catch (error) {
+            console.error('Error loading history:', error);
+            // Optionally show error, but silent fail is ok for init
+        }
     },
 
     filterProducts(searchTerm) {
-        const filtered = Database.getAll('products').filter(p =>
+        if (!searchTerm) {
+            this.loadProducts(); // Reload full list if clear
+            return;
+        }
+
+        // Local filter of cached list
+        const filtered = this.currentProducts.filter(p =>
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.category.toLowerCase().includes(searchTerm.toLowerCase())
         );
-        this.currentProducts = filtered;
-        this.renderProductsTable();
+        this.renderProductsTable(filtered);
     },
 
-    renderProductsTable() {
+    renderProductsTable(products = null) {
+        const list = products || this.currentProducts;
         const tbody = document.getElementById('products-tbody');
         if (!tbody) return;
 
-        if (this.currentProducts.length === 0) {
+        if (list.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -85,7 +105,7 @@ const Inventory = {
             return;
         }
 
-        tbody.innerHTML = this.currentProducts.map(product => `
+        tbody.innerHTML = list.map(product => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-4">
                     <div class="font-medium text-gray-900 dark:text-white">${product.name}</div>
@@ -96,7 +116,7 @@ const Inventory = {
                         ${product.stock} unidades
                     </span>
                 </td>
-                <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">$${product.price.toLocaleString()}</td>
+                <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">$${parseFloat(product.price).toLocaleString()}</td>
                 <td class="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">$${(product.stock * product.price).toLocaleString()}</td>
                 <td class="px-6 py-4">
                     <div class="flex gap-2">
@@ -125,16 +145,15 @@ const Inventory = {
         const tbody = document.getElementById('history-tbody');
         if (!tbody) return;
 
-        let filteredMovements = this.movements;
-
+        let filtered = this.movements;
         if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filteredMovements = this.movements.filter(mov =>
-                mov.productName.toLowerCase().includes(term)
+            filtered = filtered.filter(m =>
+                m.product?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                m.description?.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
 
-        if (filteredMovements.length === 0) {
+        if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -145,31 +164,24 @@ const Inventory = {
             return;
         }
 
-        tbody.innerHTML = filteredMovements.map(mov => `
+        tbody.innerHTML = filtered.map(item => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                 <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                    ${new Date(mov.date).toLocaleString()}
+                 <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    ${new Date(item.created_at).toLocaleString()}
                 </td>
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                    ${mov.productName}
+                    ${item.product?.name || 'Producto eliminado'}
                 </td>
                 <td class="px-6 py-4">
-                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${mov.type === 'in' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
-                        ${mov.type === 'in' ? 'Entrada' : 'Salida'}
+                    <span class="badge ${item.type === 'entrada' ? 'badge-success' : 'badge-danger'}">
+                        ${item.type.toUpperCase()}
                     </span>
                 </td>
-                <td class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">
-                    ${mov.type === 'in' ? '+' : '-'}${mov.quantity}
+                <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">
+                    ${item.type === 'entrada' ? '+' : '-'}${item.quantity}
                 </td>
                  <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    ${mov.notes || '-'}
-                </td>
-                <td class="px-6 py-4 text-center">
-                    <button onclick="Inventory.deleteMovement(${mov.id})" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar Movimiento">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </button>
+                    ${item.description || '-'}
                 </td>
             </tr>
         `).join('');
@@ -204,7 +216,8 @@ const Inventory = {
 
     showReplenishModal(productId) {
         this.replenishId = productId;
-        const product = Database.getById('products', productId);
+        // Find product in current list
+        const product = this.currentProducts.find(p => p.id === productId);
         if (!product) return;
 
         document.getElementById('replenish-product-name').textContent = product.name;
@@ -225,33 +238,44 @@ const Inventory = {
         this.replenishId = null;
     },
 
-    saveProduct() {
+    async saveProduct() {
         const name = document.getElementById('product-name').value.trim();
         const category = document.getElementById('product-category').value.trim();
         const price = parseFloat(document.getElementById('product-price').value);
         const stock = parseInt(document.getElementById('product-stock').value);
 
-        if (!name || !category || !price === '' || !stock === '') {
-            Toast.error('Por favor completa todos los campos');
+        if (!name || !category || isNaN(price) || isNaN(stock)) {
+            Toast.error('Por favor completa todos los campos correctamente');
             return;
         }
 
         const productData = { name, category, price, stock };
 
-        if (this.editingId) {
-            Database.update('products', this.editingId, productData);
-            Toast.success('Producto actualizado exitosamente');
-        } else {
-            // Initial stock adds a movement log too? Maybe not for initial creation, but let's keep it simple.
-            Database.add('products', productData);
-            Toast.success('Producto agregado exitosamente');
+        try {
+            if (this.editingId) {
+                await fetch(`/api/products/${this.editingId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify(productData)
+                });
+                Toast.success('Producto actualizado exitosamente');
+            } else {
+                await fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify(productData)
+                });
+                Toast.success('Producto agregado exitosamente');
+            }
+            this.closeModal();
+            this.loadProducts();
+        } catch (error) {
+            console.error(error);
+            Toast.error('Error guardando producto');
         }
-
-        this.closeModal();
-        this.loadProducts();
     },
 
-    saveReplenishment() {
+    async saveReplenishment() {
         if (!this.replenishId) return;
 
         const quantity = parseInt(document.getElementById('replenish-quantity').value);
@@ -262,76 +286,66 @@ const Inventory = {
             return;
         }
 
-        const product = Database.getById('products', this.replenishId);
+        const product = this.currentProducts.find(p => p.id === this.replenishId);
         if (!product) return;
 
-        // Update product stock
+        // Calculate new stock
         const newStock = parseInt(product.stock) + quantity;
-        Database.update('products', this.replenishId, { ...product, stock: newStock });
 
-        // Add movement record
-        Database.add('inventory_movements', {
-            productId: product.id,
-            productName: product.name,
-            type: 'in',
-            quantity: quantity,
-            date: new Date().toISOString(),
-            notes: notes || 'Reposición de inventario'
-        });
+        try {
+            // 1. Update stock via API
+            await fetch(`/api/products/${this.replenishId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: JSON.stringify({ ...product, stock: newStock })
+            });
 
-        Toast.success('Stock actualizado exitosamente');
-        this.closeReplenishModal();
-        this.loadProducts();
-        this.loadHistory();
+            // 2. Log Movement
+            await fetch('/api/inventory-movements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: JSON.stringify({
+                    productId: this.replenishId,
+                    type: 'entrada',
+                    quantity: quantity,
+                    description: notes || 'Reposición de inventario'
+                })
+            });
+
+            Toast.success('Stock actualizado exitosamente');
+            this.closeReplenishModal();
+            this.loadProducts();
+            this.loadHistory(); // Reload history
+        } catch (error) {
+            console.error(error);
+            Toast.error('Error actualizando stock');
+        }
     },
 
     editProduct(id) {
-        const product = Database.getById('products', id);
+        const product = this.currentProducts.find(p => p.id === id);
         if (product) {
             this.showProductModal(product);
         }
     },
 
-    deleteProduct(id) {
+    async deleteProduct(id) {
         if (confirm('¿Estás seguro de eliminar este producto?')) {
-            Database.delete('products', id);
-            Toast.success('Producto eliminado exitosamente');
-            this.loadProducts();
-        }
-    },
-
-    deleteMovement(id) {
-        const movement = this.movements.find(m => m.id === id);
-        if (!movement) return;
-
-        if (confirm(`¿Eliminar este movimiento de ${movement.type === 'in' ? 'Entrada' : 'Salida'}?\nEsto revertirá el stock del producto.`)) {
-            const product = Database.getById('products', movement.productId);
-
-            if (product) {
-                // Reverse stock logic
-                let newStock = product.stock;
-                if (movement.type === 'in') {
-                    // Was Entry (+), so Subtract to reverse
-                    newStock -= movement.quantity;
-                } else {
-                    // Was Exit (-), so Add to reverse
-                    newStock += movement.quantity;
-                }
-
-                // Update product stock
-                Database.update('products', product.id, {
-                    stock: newStock
+            try {
+                await fetch(`/api/products/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
                 });
+                Toast.success('Producto eliminado exitosamente');
+                this.loadProducts();
+            } catch (error) {
+                console.error(error);
+                Toast.error('Error eliminando producto');
             }
-
-            // Delete movement record
-            Database.delete('inventory_movements', id);
-
-            Toast.success('Movimiento eliminado y stock revertido');
-            this.loadProducts();
-            this.loadHistory();
         }
     },
+
+    deleteMovement(id) { },
 
     render() {
         return `
@@ -344,12 +358,6 @@ const Inventory = {
                     </div>
                     
                     <div class="flex gap-3">
-                        <button id="export-inventory-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            Exportar CSV
-                        </button>
                         <button id="add-product-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -397,34 +405,21 @@ const Inventory = {
                     </div>
                 </div>
                 
-                 <!-- History Section -->
+                 <!-- History Section (Placeholder for Future Implementation) -->
                 <div class="mt-8">
                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                         <h2 class="text-xl font-bold text-gray-900 dark:text-white">Historial de Movimientos</h2>
-                        
-                        <!-- History Search -->
-                         <div class="relative w-full md:w-64">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </span>
-                            <input type="text" id="search-history" placeholder="Buscar en historial..." 
-                                class="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 outline-none w-full shadow-sm">
-                        </div>
                     </div>
-                    
                      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft overflow-hidden transition-colors">
                         <div class="overflow-x-auto">
                             <table class="w-full">
                                 <thead>
                                     <tr class="bg-gray-50 dark:bg-gray-700/50">
-                                        <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Fecha/Hora</th>
+                                        <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Fecha</th>
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Producto</th>
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Tipo</th>
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Cantidad</th>
-                                        <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Notas</th>
-                                        <th class="text-center px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Acciones</th>
+                                        <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Descripción</th>
                                     </tr>
                                 </thead>
                                 <tbody id="history-tbody" class="divide-y divide-gray-100 dark:divide-gray-700">

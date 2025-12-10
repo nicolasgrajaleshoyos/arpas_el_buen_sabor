@@ -60,6 +60,11 @@ const RawMaterials = {
         if (transactionMaterialSelect) {
             transactionMaterialSelect.addEventListener('change', (e) => this.updateTransactionUnits(e.target.value));
         }
+
+        // Global Period Filter
+        window.addEventListener('period-changed', (e) => {
+            this.applyFilters();
+        });
     },
 
     updateTransactionUnits(materialId) {
@@ -167,7 +172,14 @@ const RawMaterials = {
 
             const matchesMaterial = !materialFilter || transaction.materialName.toLowerCase().includes(materialFilter);
             const matchesType = !typeFilter || transaction.type === typeFilter;
-            return matchesMaterial && matchesType;
+
+            // Global Period Filter
+            let matchesPeriod = true;
+            if (typeof GlobalPeriod !== 'undefined') {
+                matchesPeriod = GlobalPeriod.isDateInPeriod(transaction.date);
+            }
+
+            return matchesMaterial && matchesType && matchesPeriod;
         });
 
         this.renderTransactionsTable();

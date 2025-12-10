@@ -7,7 +7,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/sales.js') }}?v=2.1"></script>
+<script src="{{ asset('js/modules/sales.js') }}?v=3.0"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sales-content').innerHTML = Sales.render();
