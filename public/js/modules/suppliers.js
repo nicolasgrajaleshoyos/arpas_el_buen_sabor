@@ -2,6 +2,7 @@
 const Suppliers = {
     currentSuppliers: [],
     editingId: null,
+    productTags: [],
 
     init() {
         console.log('Inicializando Proveedores...');
@@ -102,6 +103,35 @@ const Suppliers = {
         `).join('');
     },
 
+    renderTags() {
+        const container = document.getElementById('supplier-tags-container');
+        if (!container) return;
+
+        container.innerHTML = this.productTags.map((tag, index) => `
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                ${tag}
+                <button type="button" onclick="Suppliers.removeTag(${index})" class="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-700 focus:outline-none transition-colors">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </span>
+        `).join('');
+    },
+
+    addTag(tag) {
+        tag = tag.trim();
+        if (tag && !this.productTags.includes(tag)) {
+            this.productTags.push(tag);
+            this.renderTags();
+        }
+    },
+
+    removeTag(index) {
+        this.productTags.splice(index, 1);
+        this.renderTags();
+    },
+
     showSupplierModal(supplier = null) {
         this.editingId = supplier ? supplier.id : null;
 
@@ -117,9 +147,25 @@ const Suppliers = {
             document.getElementById('supplier-phone').value = supplier.phone;
             document.getElementById('supplier-email').value = supplier.email;
             document.getElementById('supplier-address').value = supplier.address;
-            document.getElementById('supplier-products').value = supplier.products;
+            // Parse products string into tags
+            this.productTags = supplier.products ? supplier.products.split(/[\n,]+/).map(p => p.trim()).filter(p => p) : [];
         } else {
             form.reset();
+            this.productTags = [];
+        }
+
+        this.renderTags();
+
+        // Setup tag input listener
+        const tagInput = document.getElementById('supplier-product-input');
+        if (tagInput) {
+            tagInput.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addTag(tagInput.value);
+                    tagInput.value = '';
+                }
+            };
         }
 
         modal.classList.remove('hidden');
@@ -142,7 +188,7 @@ const Suppliers = {
             phone: document.getElementById('supplier-phone').value.trim(),
             email: document.getElementById('supplier-email').value.trim(),
             address: document.getElementById('supplier-address').value.trim(),
-            products: document.getElementById('supplier-products').value.trim()
+            products: this.productTags.join(', ')
         };
 
         if (!supplierData.name || !supplierData.nit) {
@@ -293,7 +339,13 @@ const Suppliers = {
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Productos que Suministra</label>
-                            <textarea id="supplier-products" rows="2" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                            <div class="p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500">
+                                <div id="supplier-tags-container" class="flex flex-wrap gap-2 mb-2 min-h-[30px]">
+                                    <!-- Tags will be rendered here -->
+                                </div>
+                                <input type="text" id="supplier-product-input" placeholder="Escribe un producto y presiona Enter..." class="w-full bg-transparent border-none focus:ring-0 p-1 text-gray-900 dark:text-white placeholder-gray-400 text-sm">
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Presiona Enter para agregar cada producto a la lista</p>
                         </div>
                         
                         <div class="flex gap-3 pt-4">

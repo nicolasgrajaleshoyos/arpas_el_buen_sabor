@@ -21,6 +21,9 @@ Route::get('/sales', [DashboardController::class, 'sales'])->name('sales');
 Route::get('/raw-materials', [DashboardController::class, 'rawMaterials'])->name('raw-materials');
 Route::get('/suppliers', [DashboardController::class, 'suppliers'])->name('suppliers');
 Route::get('/hr', [DashboardController::class, 'hr'])->name('hr');
+Route::get('/returns', function () {
+    return view('modules.returns');
+})->name('returns');
 Route::get('/settings', [DashboardController::class, 'settings'])->name('settings');
 Route::resource('purchases', PurchaseController::class);
 Route::post('/migrate-data', [App\Http\Controllers\DataMigrationController::class, 'migrate'])->name('migrate-data');
@@ -43,3 +46,8 @@ Route::delete('/api/raw-materials/{id}', [App\Http\Controllers\Api\RawMaterialCo
 Route::get('/api/material-transactions', [App\Http\Controllers\Api\MaterialTransactionController::class, 'index'])->name('api.material-transactions.index');
 Route::post('/api/material-transactions', [App\Http\Controllers\Api\MaterialTransactionController::class, 'store'])->name('api.material-transactions.store');
 Route::delete('/api/material-transactions/{id}', [App\Http\Controllers\Api\MaterialTransactionController::class, 'destroy'])->name('api.material-transactions.destroy');
+
+// HR API Routes
+Route::apiResource('api/employees', App\Http\Controllers\Api\EmployeeController::class);
+Route::apiResource('api/employee-advances', App\Http\Controllers\Api\EmployeeAdvanceController::class);
+Route::apiResource('api/payrolls', App\Http\Controllers\Api\PayrollController::class);

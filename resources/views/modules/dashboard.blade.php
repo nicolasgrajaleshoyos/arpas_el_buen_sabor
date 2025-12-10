@@ -20,7 +20,7 @@
             </select>
             
             <select id="year-select" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                @for($year = date('Y') - 2; $year <= date('Y') + 1; $year++)
+                @for($year = 2023; $year <= 2050; $year++)
                     <option value="{{ $year }}" {{ $year == date('Y') ? 'selected' : '' }}>{{ $year }}</option>
                 @endfor
             </select>

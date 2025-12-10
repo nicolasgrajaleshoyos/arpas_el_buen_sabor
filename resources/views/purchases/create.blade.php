@@ -126,6 +126,7 @@
                     <thead>
                         <tr class="bg-gray-50 dark:bg-gray-700/50">
                             <th class="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Materia Prima</th>
+                            <th class="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-40">Unidad</th>
                             <th class="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Cantidad</th>
                             <th class="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-40">Precio Unitario</th>
                             <th class="py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider w-40 text-right">Subtotal</th>
@@ -216,10 +217,15 @@
         row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group';
         row.innerHTML = `
             <td class="py-3 px-4">
-                <select name="items[${index}][raw_material_id]" class="w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2" required onchange="updatePrice(${index})">
+                <select name="items[${index}][raw_material_id]" class="w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2" required onchange="updateRowDetails(${index})">
                     <option value="">Seleccione...</option>
-                    ${availableMaterials.map(m => `<option value="${m.id}" data-price="${m.price}">${m.name} (${m.unit})</option>`).join('')}
+                    ${availableMaterials.map(m => `<option value="${m.id}" data-price="${m.price}" data-unit="${m.unit}" data-pkg="${m.packaging_unit || ''}" data-pkg-qty="${m.quantity_per_package || 0}">${m.name} (${m.unit})</option>`).join('')}
                 </select>
+            </td>
+            <td class="py-3 px-4">
+                 <select name="items[${index}][unit_type]" class="w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2" onchange="calculateRowTotal(${index})">
+                    <option value="base">Unidad Base</option>
+                 </select>
             </td>
             <td class="py-3 px-4">
                 <input type="number" name="items[${index}][quantity]" step="0.01" min="0.01" class="w-full rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-emerald-500 focus:ring-emerald-500 text-sm py-2" placeholder="0.00" required oninput="calculateRowTotal(${index})">
@@ -264,25 +270,65 @@
         }
     }
 
-    function updatePrice(index) {
-        // Optional: Pre-fill price from raw material default price
+    function updateRowDetails(index) {
         const select = document.querySelector(`select[name="items[${index}][raw_material_id]"]`);
-        const price = select.options[select.selectedIndex].dataset.price;
+        const unitSelect = document.querySelector(`select[name="items[${index}][unit_type]"]`);
+        const dataset = select.options[select.selectedIndex].dataset;
+
+        // Reset Unit Select
+        unitSelect.innerHTML = `<option value="base">Unidad Base (${dataset.unit || ''})</option>`;
+        
+        // Add Package Option if available
+        // Add Package Option if available
+        if (dataset.pkg && dataset.pkgQty > 0) {
+            unitSelect.innerHTML += `<option value="package">${dataset.pkg}</option>`;
+        }
+
+        // Pre-fill price (optional)
+        const price = dataset.price;
         if (price) {
              document.querySelector(`input[name="items[${index}][unit_price]"]`).value = price;
-             calculateRowTotal(index);
         }
+
+        calculateRowTotal(index);
     }
 
     function calculateRowTotal(index) {
         const qtyInput = document.querySelector(`input[name="items[${index}][quantity]"]`);
         const priceInput = document.querySelector(`input[name="items[${index}][unit_price]"]`);
+        const unitSelect = document.querySelector(`select[name="items[${index}][unit_type]"]`);
+        const materialSelect = document.querySelector(`select[name="items[${index}][raw_material_id]"]`);
         const subtotalEl = document.getElementById(`subtotal-${index}`);
+
+        if (!materialSelect.value) {
+            subtotalEl.textContent = '$0';
+            calculateGrandTotal();
+            return;
+        }
 
         const qty = parseFloat(qtyInput.value) || 0;
         const price = parseFloat(priceInput.value) || 0;
-        const total = qty * price;
+        const unitType = unitSelect.value;
+        const dataset = materialSelect.options[materialSelect.selectedIndex]?.dataset || {};
+        
+        let total = 0;
 
+        if (unitType === 'package') {
+            // If buying by package, Price is usually per Package.
+            // Total = Qty(Packages) * Price(PerPackage)
+            total = qty * price;
+        } else {
+            // Buying by Base Unit (e.g. Grams)
+            // Price is per Unit (usually per Kg/L if unit is g/ml)
+            let multiplier = 1;
+            const unit = (dataset.unit || '').toLowerCase();
+            if (['g', 'gr', 'gramo', 'gramos', 'ml', 'mililitro', 'mililitros', 'cc'].some(u => unit === u || unit.startsWith(u))) {
+                multiplier = 0.001;
+            }
+            total = (qty * multiplier) * price;
+        }
+
+        total = Math.round(total);
         subtotalEl.textContent = '$' + total.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
         
         calculateGrandTotal();
@@ -293,11 +339,14 @@
         const rows = document.querySelectorAll('#itemsContainer tr');
         rows.forEach(row => {
             const index = row.id.split('-')[1];
-            const qty = parseFloat(document.querySelector(`input[name="items[${index}][quantity]"]`).value) || 0;
-            const price = parseFloat(document.querySelector(`input[name="items[${index}][unit_price]"]`).value) || 0;
-            total += qty * price;
+            // Get value from subtotal text since logic is complex per row
+            const subtotalText = document.getElementById(`subtotal-${index}`).textContent;
+            const subtotal = parseFloat(subtotalText.replace(/[$.]/g, '')) || 0;
+            total += subtotal;
         });
 
+        // Ensure Grand Total is also rounded (sum of rounded subtotals essentially)
+        total = Math.round(total);
         document.getElementById('grandTotal').textContent = '$' + total.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 

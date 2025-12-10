@@ -7,7 +7,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/inventory.js') }}"></script>
+<script src="{{ asset('js/modules/inventory.js') }}?v=1.3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('inventory-content').innerHTML = Inventory.render();

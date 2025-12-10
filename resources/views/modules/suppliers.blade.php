@@ -7,7 +7,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/suppliers.js') }}?v=2.2"></script>
+<script src="{{ asset('js/modules/suppliers.js') }}?v=2.3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('suppliers-content').innerHTML = Suppliers.render();

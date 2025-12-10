@@ -12,7 +12,7 @@ class EmployeeController extends Controller
      */
     public function index()
     {
-        //
+        return response()->json(\App\Models\Employee::orderBy('name')->get());
     }
 
     /**
@@ -20,7 +20,17 @@ class EmployeeController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'position' => 'required|string|max:255',
+            'salary' => 'required|numeric|min:0',
+            'hire_date' => 'nullable|date',
+            'phone' => 'nullable|string',
+            'email' => 'nullable|email'
+        ]);
+
+        $employee = \App\Models\Employee::create($validated);
+        return response()->json($employee, 201);
     }
 
     /**
@@ -28,7 +38,7 @@ class EmployeeController extends Controller
      */
     public function show(string $id)
     {
-        //
+        return response()->json(\App\Models\Employee::findOrFail($id));
     }
 
     /**
@@ -36,7 +46,19 @@ class EmployeeController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $employee = \App\Models\Employee::findOrFail($id);
+        
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'position' => 'sometimes|required|string|max:255',
+            'salary' => 'sometimes|required|numeric|min:0',
+            'hire_date' => 'nullable|date',
+            'phone' => 'nullable|string',
+            'email' => 'nullable|email'
+        ]);
+
+        $employee->update($validated);
+        return response()->json($employee);
     }
 
     /**
@@ -44,6 +66,8 @@ class EmployeeController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $employee = \App\Models\Employee::findOrFail($id);
+        $employee->delete();
+        return response()->json(null, 204);
     }
 }

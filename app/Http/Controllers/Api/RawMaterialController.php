@@ -22,6 +22,8 @@ class RawMaterialController extends Controller
                 'stock' => 'required|numeric|min:0',
                 'min_stock' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
+                'packaging_unit' => 'nullable|string|max:50',
+                'quantity_per_package' => 'nullable|numeric|min:0',
                 'supplier_id' => 'nullable|exists:suppliers,id',
                 'product_id' => 'nullable|exists:products,id',
             ]);
@@ -53,6 +55,8 @@ class RawMaterialController extends Controller
                 'stock' => 'required|numeric|min:0',
                 'min_stock' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
+                'packaging_unit' => 'nullable|string|max:50',
+                'quantity_per_package' => 'nullable|numeric|min:0',
                 'supplier_id' => 'nullable|exists:suppliers,id',
                 'product_id' => 'nullable|exists:products,id',
             ]);

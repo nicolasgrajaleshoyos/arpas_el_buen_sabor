@@ -23,7 +23,7 @@ class MaterialTransactionController extends Controller
         try {
             $validated = $request->validate([
                 'raw_material_id' => 'required|exists:raw_materials,id',
-                'type' => 'required|string|in:Producción,Desperdicio,Ajuste',
+                'type' => 'required|string|max:100',
                 'quantity' => 'required|numeric|min:0.01',
                 'notes' => 'nullable|string',
             ]);
