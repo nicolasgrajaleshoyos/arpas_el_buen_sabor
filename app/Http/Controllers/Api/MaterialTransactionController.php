@@ -26,6 +26,7 @@ class MaterialTransactionController extends Controller
                 'type' => 'required|string|max:100',
                 'quantity' => 'required|numeric|min:0.01',
                 'notes' => 'nullable|string',
+                'transaction_date' => 'nullable|date',
             ]);
 
             // Get the material
@@ -48,7 +49,7 @@ class MaterialTransactionController extends Controller
                 'type' => $validated['type'],
                 'quantity' => $validated['quantity'],
                 'notes' => $validated['notes'] ?? null,
-                'transaction_date' => now(),
+                'transaction_date' => $validated['transaction_date'] ?? now(),
             ]);
 
             // Update material stock

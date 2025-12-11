@@ -146,6 +146,15 @@ const Inventory = {
         if (!tbody) return;
 
         let filtered = this.movements;
+
+        if (typeof GlobalPeriod !== 'undefined') {
+            // Ensure we handle the date correctly regardless of format
+            filtered = filtered.filter(m => {
+                const dateStr = m.created_at || m.date;
+                return GlobalPeriod.isDateInPeriod(dateStr);
+            });
+        }
+
         if (searchTerm) {
             filtered = filtered.filter(m =>
                 m.product?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,18 +165,28 @@ const Inventory = {
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="text-center py-8 text-gray-500 dark:text-gray-400">
-                        No hay movimientos registrados
+                    <td colspan="6" class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        No hay movimientos registrados en este periodo
                     </td>
                 </tr>
             `;
             return;
         }
 
-        tbody.innerHTML = filtered.map(item => `
+        tbody.innerHTML = filtered.map(item => {
+            // Safe date formatting
+            let dateDisplay = '-';
+            try {
+                const date = new Date(item.created_at || item.date);
+                dateDisplay = date.toLocaleString();
+            } catch (e) {
+                console.error('Date error', e);
+            }
+
+            return `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                  <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                    ${new Date(item.created_at).toLocaleString()}
+                    ${dateDisplay}
                 </td>
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     ${item.product?.name || 'Producto eliminado'}
@@ -180,11 +199,19 @@ const Inventory = {
                 <td class="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                     ${item.type === 'entrada' ? '+' : '-'}${item.quantity}
                 </td>
-                 <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     ${item.description || '-'}
                 </td>
+                <td class="px-6 py-4">
+                    <button onclick="Inventory.deleteMovement(${item.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar Movimiento">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     },
 
     showProductModal(product = null) {
@@ -345,7 +372,28 @@ const Inventory = {
         }
     },
 
-    deleteMovement(id) { },
+    async deleteMovement(id) {
+        if (!confirm('¿Estás seguro de eliminar este movimiento? Esto revertirá el cambio en el stock.')) return;
+
+        try {
+            const res = await fetch(`/api/inventory-movements/${id}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Error eliminando movimiento');
+            }
+
+            Toast.success('Movimiento eliminado y stock revertido correctamente');
+            this.loadProducts(); // Reload stock
+            this.loadHistory(); // Reload history
+        } catch (error) {
+            console.error(error);
+            Toast.error(error.message);
+        }
+    },
 
     render() {
         return `
@@ -420,6 +468,7 @@ const Inventory = {
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Tipo</th>
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Cantidad</th>
                                         <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Descripción</th>
+                                        <th class="text-left px-6 py-4 font-semibold text-gray-600 dark:text-gray-300">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="history-tbody" class="divide-y divide-gray-100 dark:divide-gray-700">

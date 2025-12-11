@@ -566,7 +566,8 @@ const RawMaterials = {
                     raw_material_id: materialId,
                     type: type,
                     quantity: quantity,
-                    notes: notes
+                    notes: notes,
+                    transaction_date: this.getAdjustedDate()
                 })
             });
 
@@ -808,6 +809,26 @@ const RawMaterials = {
             console.error('Error saving materials:', error);
             Toast.error('Error de conexión al guardar');
         }
+    },
+
+    getAdjustedDate() {
+        let date = new Date();
+        const monthSelect = document.getElementById('global-month');
+        const yearSelect = document.getElementById('global-year');
+
+        if (monthSelect && yearSelect) {
+            const selectedMonth = parseInt(monthSelect.value);
+            const selectedYear = parseInt(yearSelect.value);
+
+            if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) {
+                return date.toISOString();
+            }
+
+            date.setFullYear(selectedYear);
+            date.setMonth(selectedMonth);
+            return date.toISOString();
+        }
+        return date.toISOString();
     },
 
     async deleteMaterial(id) {
@@ -1103,5 +1124,19 @@ const RawMaterials = {
                 </div>
             </div>
         `;
+    },
+    getAdjustedDate() {
+        let date = new Date();
+        const monthSelect = document.getElementById('global-month');
+        const yearSelect = document.getElementById('global-year');
+        if (monthSelect && yearSelect) {
+            const selectedMonth = parseInt(monthSelect.value);
+            const selectedYear = parseInt(yearSelect.value);
+            if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
+                date.setFullYear(selectedYear);
+                date.setMonth(selectedMonth);
+            }
+        }
+        return date.toISOString();
     }
 };

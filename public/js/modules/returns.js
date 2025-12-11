@@ -192,9 +192,9 @@ const Returns = {
                                 quantity: item.quantity,
                                 unitPrice: item.unitPrice,
                                 total: item.total,
-                                date: new Date().toISOString(),
+                                date: this.getAdjustedDate(),
                                 status: 'returned',
-                                returnedAt: new Date().toISOString()
+                                returnedAt: this.getAdjustedDate()
                             })
                         });
 
@@ -497,11 +497,9 @@ const Returns = {
     },
 
     render() {
-        // Initial Calculation (optional, as init will update it, but good for SSR-like feel)
-        const totalReturnsValue = 0; // Will update on init
+        const totalReturnsValue = 0;
         const totalQty = 0;
         const totalTransactions = 0;
-
         return `
             <div class="space-y-6 animate-fade-in">
                 <!-- Header -->
@@ -710,5 +708,29 @@ const Returns = {
                 </div>
             </div>
         `;
+    },
+
+    getAdjustedDate() {
+        let date = new Date();
+        const monthSelect = document.getElementById('global-month');
+        const yearSelect = document.getElementById('global-year');
+        if (monthSelect && yearSelect) {
+            const selectedMonth = parseInt(monthSelect.value);
+            const selectedYear = parseInt(yearSelect.value);
+            if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
+                date.setFullYear(selectedYear);
+                date.setMonth(selectedMonth);
+                // Keep current day/time but adjust for month length if necessary
+                // Simple approach: set to 1st of month to avoid issues
+                // OR better: keep day if valid, or last day of month
+                // sales.js implementation uses current day but doesn't check for overflow (e.g. jan 31 -> feb -> mar 3)
+                // Let's copy the safeset logic: set to 1st or just current time if in range, else start of month?
+                // sales.js logic:
+                // if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) return iso;
+                // else { date.setFullYear(year); date.setMonth(month); return iso; }
+                // This implies if we switch to Jan 2026, it uses 'today's day' in Jan 2026. This is fine.
+            }
+        }
+        return date.toISOString();
     }
 };

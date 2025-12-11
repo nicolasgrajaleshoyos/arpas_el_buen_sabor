@@ -356,7 +356,7 @@
             populateYears() {
                 const currentYear = new Date().getFullYear();
                 const startYear = 2024; // Project start
-                const endYear = currentYear + 2; 
+                const endYear = 2035; // Extended range per user request 
 
                 this.yearSelect.innerHTML = '';
                 for (let y = startYear; y <= endYear; y++) {

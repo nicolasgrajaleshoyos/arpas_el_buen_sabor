@@ -14,7 +14,7 @@ class SaleController extends Controller
      */
     public function index()
     {
-        return Sale::orderBy('date', 'desc')->get();
+        return Sale::orderBy('sale_date', 'desc')->get();
     }
 
     /**
@@ -69,7 +69,7 @@ class SaleController extends Controller
         if ($request->has('status') && $request->status === 'returned') {
              $sale->update([
                  'status' => 'returned',
-                 'returned_at' => now()
+                 'returned_at' => $request->input('returned_at') ?? now()
              ]);
              
              // Restore stock

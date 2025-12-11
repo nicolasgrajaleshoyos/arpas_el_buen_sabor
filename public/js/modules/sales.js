@@ -60,7 +60,6 @@ const Sales = {
         // Global Period Filter Listener
         window.addEventListener('period-changed', (e) => {
             this.loadSales();
-            this.render(); // Re-render stats
         });
     },
 
@@ -228,7 +227,9 @@ const Sales = {
                                 quantity: item.quantity,
                                 unitPrice: item.unitPrice,
                                 total: item.total,
-                                date: new Date().toISOString(),
+                                unitPrice: item.unitPrice,
+                                total: item.total,
+                                date: this.getAdjustedDate(), // Use adjusted date helper
                                 status: 'completed'
                             })
                         });
@@ -300,7 +301,8 @@ const Sales = {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                         },
                         body: JSON.stringify({
-                            status: 'returned'
+                            status: 'returned',
+                            returned_at: this.getAdjustedDate()
                         })
                     });
 
@@ -400,8 +402,50 @@ const Sales = {
 
             this.currentSales = allSales.sort((a, b) => new Date(b.sale_date || b.date) - new Date(a.sale_date || a.date));
             this.renderSalesTable();
+            this.updateHeaderStats();
         } catch (error) {
             console.error('Error loading sales:', error);
+        }
+    },
+
+    updateHeaderStats() {
+        const countEl = document.getElementById('header-stats-count');
+        const totalEl = document.getElementById('header-stats-total');
+
+        // Also update labels if possible
+        // We need to find the label elements. In render they are plain text inside div.
+        // Let's rely on just updating numbers for now, or use specific IDs for labels next time if needed.
+        // Actually, let's look at the DOM structure in render():
+        // <div class="text-xs font-medium opacity-90">Ventas (${periodLabel})</div>
+        // It's hard to target the label text node easily without wrapping it.
+        // I will try to update the period label if I can, but primarily the numbers.
+
+        if (!countEl || !totalEl) return;
+
+        // Current sales are already filtered
+        const validSales = (this.currentSales || []).filter(s => s.status !== 'returned');
+        const count = validSales.length;
+        const total = validSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
+
+        countEl.textContent = count;
+        totalEl.textContent = '$' + total.toLocaleString();
+
+        // Try to update Labels
+        // We can look for the parent's first child div
+        if (typeof GlobalPeriod !== 'undefined') {
+            const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const m = parseInt(document.getElementById('global-month').value);
+            const y = parseInt(document.getElementById('global-year').value);
+            const label = `${months[m]} ${y}`;
+
+            // This is brittle DOM traversal but should work for the structure:
+            // parent of countEl -> previous sibling element?
+            // Structure: <div>Title</div> <div id="...">Value</div>
+            const countLabel = countEl.previousElementSibling;
+            if (countLabel) countLabel.textContent = `Ventas (${label})`;
+
+            const totalLabel = totalEl.previousElementSibling;
+            if (totalLabel) totalLabel.textContent = `Total (${label})`;
         }
     },
 
@@ -742,5 +786,42 @@ const Sales = {
                 </div>
             </div>
         `;
+    },
+    getAdjustedDate() {
+        // Default to current date
+        let date = new Date();
+
+        // If Global Period filters exist, respect them
+        const monthSelect = document.getElementById('global-month');
+        const yearSelect = document.getElementById('global-year');
+
+        if (monthSelect && yearSelect) {
+            const selectedMonth = parseInt(monthSelect.value);
+            const selectedYear = parseInt(yearSelect.value);
+
+            // If selected period matches current real period, keep current date (with time)
+            if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) {
+                return date.toISOString();
+            }
+
+            // Otherwise, construct a date in the selected period
+            // Use current day if valid, otherwise clamped to end of month.
+            // But usually for "backdating", we might want the last day of month or first?
+            // Let's try to keep the same day of month if possible (e.g. 10th), 
+            // but if today is 31st and selected month only has 30, clamp it.
+            // Also, for time, we can use current time or 12:00.
+
+            // Set year and month
+            date.setFullYear(selectedYear);
+            date.setMonth(selectedMonth);
+
+            // Date object auto-adjusts if day overflow (e.g. Set Feb 31 -> March 3).
+            // We want to clamp.
+            // Actually, simpler approach: set to 15th of the month or just use current day.
+            // Let's just return ISO string.
+            return date.toISOString();
+        }
+
+        return date.toISOString();
     }
 };
