@@ -1,0 +1,7 @@
+
+   PASS  Tests\Feature\DeleteCreditTest
+  Ô£ô it can dÔÇª 4.12s  
+
+  Tests:    1 passed (4 assertions)
+  Duration: 4.62s
+

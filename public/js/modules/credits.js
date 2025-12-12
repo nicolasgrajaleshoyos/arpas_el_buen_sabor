@@ -412,6 +412,9 @@ const Credits = {
                             <button onclick="Credits.showDetails(${c.id})" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg" title="Ver Detalle">
                                 👁️
                             </button>
+                             <button onclick="Credits.confirmDelete(${c.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -494,6 +497,50 @@ const Credits = {
             `,
             width: '600px'
         });
+    },
+
+    confirmDelete(id) {
+        Swal.fire({
+            title: '¿Eliminar Crédito?',
+            text: "Esta acción restaurará el stock de los productos. ¡No se puede deshacer!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.deleteCredit(id);
+            }
+        });
+    },
+
+    async deleteCredit(id) {
+        try {
+            const res = await fetch(`/api/credits/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!res.ok) throw new Error('Error al eliminar');
+
+            Swal.fire(
+                'Eliminado',
+                'El crédito ha sido eliminado y el stock restaurado.',
+                'success'
+            );
+
+            this.loadCredits();
+            this.loadProducts(); // Refresh stock
+
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'No se pudo eliminar el crédito', 'error');
+        }
     }
 };
 

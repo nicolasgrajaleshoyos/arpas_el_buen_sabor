@@ -7,7 +7,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/credits.js') }}?v=1.0"></script>
+<script src="{{ asset('js/modules/credits.js') }}?v=1.2"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('credits-content').innerHTML = Credits.render();

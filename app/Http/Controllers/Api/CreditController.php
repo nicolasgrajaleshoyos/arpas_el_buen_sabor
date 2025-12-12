@@ -115,4 +115,28 @@ class CreditController extends Controller
             return $credit->load(['items', 'payments']);
         });
     }
+    // Delete a credit and restore stock
+    public function destroy($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $credit = Credit::with('items')->findOrFail($id);
+
+            // Restore Stock
+            foreach ($credit->items as $item) {
+                $product = Product::find($item->product_id);
+                if ($product) {
+                    $product->increment('stock', $item->quantity);
+                }
+            }
+
+            // Delete Items and Payments (Cascading usually handles this, but safe to be explicit or rely on foreign keys)
+            // Assuming DB constraints cascade, if not we delete manually:
+            $credit->items()->delete();
+            $credit->payments()->delete();
+            
+            $credit->delete();
+
+            return response()->json(['message' => 'Crédito eliminado y stock restaurado']);
+        });
+    }
 }

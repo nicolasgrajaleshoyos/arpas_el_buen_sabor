@@ -1,0 +1,25 @@
+
+   FAIL  Tests\Feature\DeleteCreditTest
+  Ô¿» it can dÔÇª 0.54s  
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILED  Tests\Feature\DeleteCreditTest > it can delete credit and restore stock  QueryException   
+  SQLSTATE[HY000]: General error: 1 no such table: products (Connection: sqlite, SQL: insert into "products" ("name", "category", "stock", "price", "updated_at", "created_at") values (Test Product, General, 100, 1000, 2025-12-12 20:35:56, 2025-12-12 20:35:56))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:564
+    560Ôûò             if ($this->pretending()) {
+    561Ôûò                 return true;
+    562Ôûò             }
+    563Ôûò 
+  Ô×£ 564Ôûò             $statement = $this->getPdo()->prepare($query);
+    565Ôûò 
+    566Ôûò             $this->bindValues($statement, $this->prepareBindings($bindings));
+    567Ôûò 
+    568Ôûò             $this->recordsHaveBeenModified();
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:564
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:813
+
+
+  Tests:    1 failed (0 assertions)
+  Duration: 0.90s
+
