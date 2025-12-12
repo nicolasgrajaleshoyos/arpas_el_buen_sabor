@@ -34,52 +34,51 @@ const Dashboard = {
         }
     },
 
-    loadData() {
-        this.updateKPIs();
-        this.updateCharts();
+    async loadData() {
+        try {
+            const month = document.getElementById('month-select')?.value || this.currentMonth;
+            const year = document.getElementById('year-select')?.value || this.currentYear;
+
+            const res = await fetch(`/api/dashboard/stats?month=${month}&year=${year}`);
+            if (!res.ok) throw new Error('API Error');
+
+            const stats = await res.json();
+
+            this.updateKPIs(stats);
+            this.updateCharts(stats);
+        } catch (error) {
+            console.error('Error fetching dashboard data:', error);
+        }
     },
 
-    updateKPIs() {
-        const stats = Database.getStats();
+    updateKPIs(stats) {
+        // Update KPI cards with Real Data
+        document.getElementById('kpi-inventory').textContent = '$' + parseFloat(stats.inventoryValue).toLocaleString();
+        document.getElementById('kpi-sales').textContent = '$' + parseFloat(stats.monthlySales).toLocaleString();
+        document.getElementById('kpi-payroll').textContent = '$' + parseFloat(stats.monthlyPayroll).toLocaleString();
 
-        // Update KPI cards
-        document.getElementById('kpi-inventory').textContent = '$' + stats.inventoryValue.toLocaleString();
-        document.getElementById('kpi-sales').textContent = '$' + stats.monthlySales.toLocaleString();
-        document.getElementById('kpi-payroll').textContent = '$' + stats.monthlyPayroll.toLocaleString();
-        document.getElementById('kpi-products').textContent = stats.totalProducts;
-    },
-
-    updateCharts() {
-        this.updateSalesChart();
-        this.updateDistributionChart();
-    },
-
-    updateSalesChart() {
-        const sales = Database.getAll('sales');
-
-        // Filter by selected month/year
-        const filteredSales = sales.filter(s => {
-            const date = new Date(s.date);
-            return date.getMonth() === this.currentMonth && date.getFullYear() === this.currentYear;
-        });
-
-        // Group by day
-        const dailySales = {};
-        const daysInMonth = new Date(this.currentYear, this.currentMonth + 1, 0).getDate();
-
-        // Initialize all days
-        for (let i = 1; i <= daysInMonth; i++) {
-            dailySales[i] = 0;
+        // Update Returns KPI (Devoluciones)
+        // If element exists (it should based on Blade)
+        const kpiReturns = document.getElementById('kpi-returns');
+        if (kpiReturns) {
+            kpiReturns.textContent = '$' + parseFloat(stats.monthlyReturns || 0).toLocaleString();
         }
 
-        // Sum sales by day
-        filteredSales.forEach(sale => {
-            const day = new Date(sale.date).getDate();
-            dailySales[day] += sale.total;
-        });
+        // Optional: Products count
+        const kpiProducts = document.getElementById('kpi-products');
+        if (kpiProducts) {
+            kpiProducts.textContent = stats.totalProducts;
+        }
+    },
 
-        const labels = Object.keys(dailySales);
-        const data = Object.values(dailySales);
+    updateCharts(stats) {
+        this.updateSalesChart(stats);
+        this.updateReturnsChart(stats);
+    },
+
+    updateSalesChart(stats) {
+        const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const data = stats.charts.sales; // Array of 12 values
 
         // Destroy previous chart
         if (this.charts.sales) {
@@ -87,38 +86,27 @@ const Dashboard = {
         }
 
         // Create new chart
-        this.charts.sales = ChartUtils.createBarChart('sales-chart', labels, data, 'Ventas Diarias');
+        this.charts.sales = ChartUtils.createBarChart('sales-chart', labels, data, 'Ventas Mensuales');
     },
 
-    updateDistributionChart() {
-        const sales = Database.getAll('sales');
-
-        // Filter by selected month/year
-        const filteredSales = sales.filter(s => {
-            const date = new Date(s.date);
-            return date.getMonth() === this.currentMonth && date.getFullYear() === this.currentYear;
-        });
-
-        // Group by product
-        const productSales = {};
-
-        filteredSales.forEach(sale => {
-            if (!productSales[sale.productName]) {
-                productSales[sale.productName] = 0;
-            }
-            productSales[sale.productName] += sale.quantity;
-        });
-
-        const labels = Object.keys(productSales);
-        const data = Object.values(productSales);
+    updateReturnsChart(stats) {
+        const labels = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const data = stats.charts.returns; // Array of 12 values
 
         // Destroy previous chart
-        if (this.charts.distribution) {
+        if (this.charts.distribution) { // Reusing 'distribution' key to store returns chart instance
             ChartUtils.destroyChart(this.charts.distribution);
         }
 
-        // Create new chart
-        this.charts.distribution = ChartUtils.createPieChart('distribution-chart', labels, data, 'Distribución de Ventas');
+        // Create new chart (Bar chart for returns to match style, or Line)
+        // Using Bar Chart for consistency with "Returns per Month"
+        this.charts.distribution = ChartUtils.createBarChart('distribution-chart', labels, data, 'Devoluciones Mensuales');
+
+        // Update chart color to Red for returns if possible?
+        // ChartUtils.createBarChart uses Green. 
+        // We might want to customize color, but for now standard Green/Teal is fine unless I change ChartUtils.
+        // It's better to visualize returns in Red, but ChartUtils hardcodes color. 
+        // I will stick to default for now to ensure it works.
     },
 
     render() {

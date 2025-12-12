@@ -99,7 +99,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/dashboard.js') }}?v=2.3"></script>
+<script src="{{ asset('js/modules/dashboard.js') }}?v=4.2"></script>
 <script>
     // Initialize Dashboard module
     document.addEventListener('DOMContentLoaded', function() {

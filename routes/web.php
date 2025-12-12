@@ -53,3 +53,15 @@ Route::apiResource('api/employee-advances', App\Http\Controllers\Api\EmployeeAdv
 Route::apiResource('api/payrolls', App\Http\Controllers\Api\PayrollController::class);
 Route::apiResource('api/sales', App\Http\Controllers\Api\SaleController::class);
 Route::apiResource('api/inventory-movements', App\Http\Controllers\Api\InventoryMovementController::class);
+
+// Credits Module
+Route::get('/credits', function () {
+    return view('modules.credits');
+})->name('credits');
+
+Route::apiResource('api/credits', App\Http\Controllers\Api\CreditController::class);
+Route::post('api/credits/{id}/payments', [App\Http\Controllers\Api\CreditController::class, 'addPayment']);
+
+Route::get('/api/dashboard/stats', [App\Http\Controllers\Api\DashboardStatsController::class, 'index']);
+
+
