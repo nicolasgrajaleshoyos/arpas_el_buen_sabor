@@ -1,0 +1,38 @@
+
+   PASS  Tests\Unit\ExampleTest
+  Ô£ô that truÔÇª 0.04s  
+
+   PASS  Tests\Feature\CreditTest
+  Ô£ô can listÔÇª 1.02s  
+  Ô£ô can creaÔÇª 0.09s  
+  Ô£ô can addÔÇª  0.05s  
+  Ô£ô can deleÔÇª 0.05s  
+
+   PASS  Tests\Feature\DashboardTest
+  Ô£ô dashboarÔÇª 0.11s  
+
+   PASS  Tests\Feature\HRTest
+  Ô£ô can creaÔÇª 0.06s  
+  Ô£ô can listÔÇª 0.04s  
+  Ô£ô can creaÔÇª 0.05s  
+  Ô£ô can geneÔÇª 0.05s  
+
+   PASS  Tests\Feature\ProductTest
+  Ô£ô can listÔÇª 0.07s  
+  Ô£ô can creaÔÇª 0.05s  
+  Ô£ô can updaÔÇª 0.05s  
+  Ô£ô can deleÔÇª 0.04s  
+
+   PASS  Tests\Feature\SaleTest
+  Ô£ô can creaÔÇª 0.05s  
+  Ô£ô cannot sÔÇª 0.05s  
+  Ô£ô can retuÔÇª 0.05s  
+
+   PASS  Tests\Feature\SupplierMaterialTest
+  Ô£ô can creaÔÇª 0.05s  
+  Ô£ô can creaÔÇª 0.04s  
+  Ô£ô purchaseÔÇª 0.06s  
+
+  Tests:    20 passed (52 assertions)
+  Duration: 2.61s
+

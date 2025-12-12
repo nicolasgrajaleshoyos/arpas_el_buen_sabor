@@ -1,0 +1,29 @@
+
+   PASS  Tests\Unit\ExampleTest
+  Ô£ô that truÔÇª 0.05s  
+
+   PASS  Tests\Feature\DeleteCreditTest
+  Ô£ô it can dÔÇª 0.82s  
+
+   PASS  Tests\Feature\HRTest
+  Ô£ô can creaÔÇª 0.10s  
+  Ô£ô can listÔÇª 0.05s  
+
+   PASS  Tests\Feature\ProductTest
+  Ô£ô can listÔÇª 0.04s  
+  Ô£ô can creaÔÇª 0.04s  
+  Ô£ô can updaÔÇª 0.04s  
+  Ô£ô can deleÔÇª 0.04s  
+
+   PASS  Tests\Feature\SaleTest
+  Ô£ô can creaÔÇª 0.04s  
+  Ô£ô cannot sÔÇª 0.04s  
+
+   PASS  Tests\Feature\SupplierMaterialTest
+  Ô£ô can creaÔÇª 0.04s  
+  Ô£ô can creaÔÇª 0.05s  
+  Ô£ô purchaseÔÇª 0.06s  
+
+  Tests:    13 passed (29 assertions)
+  Duration: 1.82s
+

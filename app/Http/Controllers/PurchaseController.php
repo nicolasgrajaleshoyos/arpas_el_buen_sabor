@@ -41,6 +41,10 @@ class PurchaseController extends Controller
             $query->whereYear('purchase_date', $request->year);
         }
 
+        if ($request->has('month') && $request->month !== null && $request->month !== '') {
+            $query->whereMonth('purchase_date', (int)$request->month + 1);
+        }
+
         if ($request->has('date_from') && $request->date_from != '') {
             $query->whereDate('purchase_date', '>=', $request->date_from);
         }

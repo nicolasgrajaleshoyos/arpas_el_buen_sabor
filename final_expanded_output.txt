@@ -1,0 +1,56 @@
+
+   PASS  Tests\Unit\ExampleTest
+  Ô£ô that truÔÇª 0.05s  
+
+   PASS  Tests\Feature\CreditTest
+  Ô£ô can listÔÇª 1.27s  
+  Ô£ô can creaÔÇª 0.11s  
+  Ô£ô can addÔÇª  0.11s  
+  Ô£ô can deleÔÇª 0.22s  
+
+   FAIL  Tests\Feature\DashboardTest
+  Ô¿» dashboarÔÇª 0.10s  
+
+   PASS  Tests\Feature\HRTest
+  Ô£ô can creaÔÇª 0.10s  
+  Ô£ô can listÔÇª 0.05s  
+  Ô£ô can creaÔÇª 0.06s  
+  Ô£ô can geneÔÇª 0.07s  
+
+   PASS  Tests\Feature\ProductTest
+  Ô£ô can listÔÇª 0.08s  
+  Ô£ô can creaÔÇª 0.06s  
+  Ô£ô can updaÔÇª 0.06s  
+  Ô£ô can deleÔÇª 0.06s  
+
+   PASS  Tests\Feature\SaleTest
+  Ô£ô can creaÔÇª 0.07s  
+  Ô£ô cannot sÔÇª 0.07s  
+  Ô£ô can retuÔÇª 0.06s  
+
+   PASS  Tests\Feature\SupplierMaterialTest
+  Ô£ô can creaÔÇª 0.07s  
+  Ô£ô can creaÔÇª 0.06s  
+  Ô£ô purchaseÔÇª 0.09s  
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILED  Tests\Feature\DashboardTest > dashboard stats calculation  QueryException   
+  SQLSTATE[23000]: Integrity constraint violation: 19 FOREIGN KEY constraint failed (Connection: sqlite, SQL: insert into "sales" ("sale_date", "total", "status", "product_id", "product_name", "quantity", "unit_price", "updated_at", "created_at") values (2025-12-12 22:01:22, 10000, completed, 1, Test, 1, 10000, 2025-12-12 22:01:22, 2025-12-12 22:01:22))
+
+  at vendor\laravel\framework\src\Illuminate\Database\Connection.php:571
+    567Ôûò             $this->bindValues($statement, $this->prepareBindings($bindings));
+    568Ôûò 
+    569Ôûò             $this->recordsHaveBeenModified();
+    570Ôûò 
+  Ô×£ 571Ôûò             return $statement->execute();
+    572Ôûò         });
+    573Ôûò     }
+    574Ôûò 
+    575Ôûò     /**
+
+  1   vendor\laravel\framework\src\Illuminate\Database\Connection.php:571
+  2   vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+
+
+  Tests:    1 failed, 19 passed (44 assertions)
+  Duration: 3.42s
+

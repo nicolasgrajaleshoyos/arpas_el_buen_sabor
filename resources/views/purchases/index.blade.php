@@ -8,7 +8,7 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Compras</h1>
-            <p class="text-gray-600 dark:text-gray-400 mt-1">Gestión de compras de materia prima</p>
+            <p class="text-gray-600 dark:text-gray-400 mt-1">Gestión de compras de insumos generales</p>
         </div>
         <a href="{{ route('purchases.create') }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,6 +232,15 @@
                 }
             });
         }
+
+        // Listen for Global Period Change
+        window.addEventListener('period-changed', function(e) {
+            const { month, year } = e.detail;
+            const url = new URL(window.location.href);
+            url.searchParams.set('month', month);
+            url.searchParams.set('year', year);
+            window.location.href = url.toString();
+        });
     });
 </script>
 @endpush

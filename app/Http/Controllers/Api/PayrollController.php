@@ -44,8 +44,16 @@ class PayrollController extends Controller
 
         $payroll = Payroll::create($validated);
         
-        // Mark advances as deducted if present in the data (Optional: complicated logic, better handled by frontend sending status updates separately or simpler backend logic)
-        // For now, we trust the frontend to calculate totals. marking advances as "deducted" should be done via AdvanceController.
+        // Mark advances as deducted if present in the data
+        $employees = $request->input('employees', []);
+        if (!empty($employees)) {
+            foreach ($employees as $empData) {
+                if (!empty($empData['deducted_advance_ids']) && is_array($empData['deducted_advance_ids'])) {
+                    \App\Models\EmployeeAdvance::whereIn('id', $empData['deducted_advance_ids'])
+                        ->update(['status' => 'deducted']);
+                }
+            }
+        }
         
         return response()->json($payroll, 201);
     }

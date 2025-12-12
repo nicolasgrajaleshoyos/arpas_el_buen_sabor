@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Materia Prima - Arepas el Buen Sabor')
+@section('title', 'Insumos Generales - Arepas el Buen Sabor')
 
 @section('content')
 <div id="raw-materials-content"></div>

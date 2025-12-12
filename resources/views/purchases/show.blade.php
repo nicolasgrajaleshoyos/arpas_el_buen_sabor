@@ -91,7 +91,7 @@
             <table class="w-full">
                 <thead>
                     <tr class="bg-gray-50 dark:bg-gray-700/50">
-                        <th class="py-4 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Materia Prima</th>
+                        <th class="py-4 px-6 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Insumos Generales</th>
                         <th class="py-4 px-6 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Cantidad</th>
                         <th class="py-4 px-6 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Precio Unit.</th>
                         <th class="py-4 px-6 text-right text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Subtotal</th>

@@ -678,16 +678,8 @@ const HR = {
             // dateString is YYYY-MM-DD. m is 1-indexed.
 
             tbody.innerHTML = this.currentEmployees.map(emp => {
-                // Filter advances: Must be pending AND match the selected Month/Year
-                const employeeAdvances = this.pendingAdvances.filter(a => {
-                    if (a.employee_id !== emp.id) return false;
-
-                    // a.request_date is YYYY-MM-DD
-                    if (!a.request_date) return false;
-                    const [advY, advM] = a.request_date.split('-').map(Number);
-
-                    return advY === y && advM === m;
-                });
+                // Filter advances: Must be pending (already filtered by API) and belong to this employee
+                const employeeAdvances = this.pendingAdvances.filter(a => a.employee_id === emp.id);
 
                 const totalAdvance = employeeAdvances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
                 const deductionStyle = totalAdvance > 0 ? "border-amber-500 bg-amber-50" : "border-gray-300 dark:border-gray-600";
@@ -776,7 +768,6 @@ const HR = {
         const rows = document.querySelectorAll('#payroll-generation-tbody tr');
         const employeesData = [];
         let totalPayroll = 0;
-        let advancesToUpdate = [];
 
         rows.forEach(row => {
             const id = parseInt(row.dataset.employeeId);
@@ -786,14 +777,20 @@ const HR = {
             const deduction = parseFloat(row.querySelector('.deduction-input').value) || 0;
             const total = salary + bonus - deduction;
 
-            // Check if we need to mark advances as deducted
-            try {
-                const advances = JSON.parse(row.dataset.advances || '[]');
-                if (advances.length > 0 && deduction >= advances.reduce((s, a) => s + parseFloat(a.amount), 0)) {
-                    // Assuming full deduction matches advance amounts, mark them for status update
-                    advances.forEach(a => advancesToUpdate.push(a.id));
+            // Determine which advances are being paid off
+            let deductedAdvanceIds = [];
+
+            // Use stored pending advances instead of dataset for reliability
+            if (this.pendingAdvances) {
+                const employeeAdvances = this.pendingAdvances.filter(a => a.employee_id === emp.id);
+                const totalAdvanceAmount = employeeAdvances.reduce((s, a) => s + parseFloat(a.amount), 0);
+
+                // If deduction covers the total advance amount (allowing for small float diff)
+                // e.g., if deduction is 100 and total is 100.00001
+                if (employeeAdvances.length > 0 && deduction >= (totalAdvanceAmount - 0.01)) {
+                    deductedAdvanceIds = employeeAdvances.map(a => a.id);
                 }
-            } catch (e) { }
+            }
 
             employeesData.push({
                 id: emp.id,
@@ -801,7 +798,8 @@ const HR = {
                 baseSalary: salary,
                 bonus: bonus,
                 deduction: deduction,
-                total: total
+                total: total,
+                deducted_advance_ids: deductedAdvanceIds
             });
             totalPayroll += total;
         });
@@ -828,18 +826,6 @@ const HR = {
             });
 
             if (!response.ok) throw new Error('Error saving payroll');
-
-            // Update Advances Status only on creation
-            if (!this.currentEditingId && advancesToUpdate.length > 0) {
-                // Update them sequentially (simplest for now)
-                for (const advId of advancesToUpdate) {
-                    await fetch(`/api/employee-advances/${advId}`, {
-                        method: 'PUT',
-                        headers: this.getHeaders(),
-                        body: JSON.stringify({ status: 'deducted' })
-                    });
-                }
-            }
 
             Toast.success(this.currentEditingId ? 'Nómina actualizada' : 'Nómina generada exitosamente');
             document.getElementById('payroll-modal').classList.add('hidden');

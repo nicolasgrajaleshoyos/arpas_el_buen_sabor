@@ -7,7 +7,7 @@ const RawMaterials = {
     selectedMaterials: [],
 
     init() {
-        console.log('Inicializando Materia Prima...');
+        console.log('Inicializando Insumos Generales...');
         this.loadMaterials();
         this.loadTransactions();
         this.loadSuppliers();
@@ -934,7 +934,7 @@ const RawMaterials = {
                 <!-- Header -->
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Materia Prima e Insumos</h1>
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Insumos Generales</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-1">Control de inventario de ingredientes y materiales</p>
                     </div>
                     <button onclick="RawMaterials.showMaterialModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2">
