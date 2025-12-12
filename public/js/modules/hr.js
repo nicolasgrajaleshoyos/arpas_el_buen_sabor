@@ -50,6 +50,13 @@ const HR = {
                 this.saveAdvance();
             };
         }
+
+        // Global Period Filter Listener
+        window.addEventListener('period-changed', (e) => {
+            this.renderPayrolls(e.detail.month, e.detail.year);
+            this.updatePayrollSummary();
+            this.renderAdvances(e.detail.month, e.detail.year);
+        });
     },
 
     getHeaders() {
@@ -272,6 +279,10 @@ const HR = {
                              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Monto Solicitado</label>
                              <input type="number" id="advance-amount" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                         </div>
+                        <div>
+                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha Solicitud</label>
+                             <input type="date" id="advance-date" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
+                        </div>
                          <div>
                              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Motivo</label>
                              <textarea id="advance-reason" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
@@ -290,7 +301,10 @@ const HR = {
                      <div class="flex items-center justify-between mb-6">
                         <div>
                              <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Generar Nómina</h2>
-                             <p class="text-sm text-gray-500 dark:text-gray-400">Periodo: <span id="payroll-month" class="font-medium text-gray-900 dark:text-white"></span></p>
+                             <div class="flex items-center gap-4 mt-1">
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Periodo: <span id="payroll-month" class="font-medium text-gray-900 dark:text-white"></span></p>
+                                <input type="date" id="payroll-date" class="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500">
+                             </div>
                         </div>
                         <button onclick="document.getElementById('payroll-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
@@ -501,16 +515,35 @@ const HR = {
         }
     },
 
-    renderAdvances() {
+    renderAdvances(filterMonth = null, filterYear = null) {
         const tbody = document.getElementById('advances-tbody');
         if (!tbody) return;
 
-        if (this.currentAdvances.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-500">No hay adelantos registrados</td></tr>`;
+        // If no filter arguments, try to read from DOM
+        if (filterMonth === null || filterYear === null) {
+            filterMonth = document.getElementById('global-month')?.value;
+            filterYear = document.getElementById('global-year')?.value;
+        }
+
+        let displayAdvances = this.currentAdvances;
+        if (filterMonth !== undefined && filterYear !== undefined && filterMonth !== "" && filterYear !== "") {
+            const m = parseInt(filterMonth);
+            const y = parseInt(filterYear);
+            displayAdvances = this.currentAdvances.filter(adv => {
+                if (!adv.request_date) return false;
+                // request_date format: YYYY-MM-DD
+                const [advYear, advMonth] = adv.request_date.split('-').map(Number);
+                // advMonth is 1-indexed, m is 0-indexed
+                return (advMonth - 1) === m && advYear === y;
+            });
+        }
+
+        if (displayAdvances.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-500">No hay adelantos para este periodo</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = this.currentAdvances.map(adv => `
+        tbody.innerHTML = displayAdvances.map(adv => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td class="px-6 py-4 text-gray-900 dark:text-white">${adv.employee ? adv.employee.name : 'Desconocido'}</td>
                 <td class="px-6 py-4 text-emerald-600 font-medium">$${parseFloat(adv.amount).toLocaleString()}</td>
@@ -524,9 +557,14 @@ const HR = {
                     </span>
                 </td>
                 <td class="px-6 py-4">
-                    ${adv.status === 'pending' ? `
-                    <button onclick="HR.cancelAdvance(${adv.id})" class="text-red-500 hover:text-red-700 text-sm">Cancelar</button>
-                    ` : ''}
+                    <div class="flex items-center gap-3">
+                        ${adv.status === 'pending' ? `
+                        <button onclick="HR.cancelAdvance(${adv.id})" class="text-amber-600 hover:text-amber-800 text-sm font-medium">Cancelar</button>
+                        ` : ''}
+                        <button onclick="HR.deleteAdvance(${adv.id})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar Registro">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');
@@ -541,7 +579,14 @@ const HR = {
         const select = document.getElementById('advance-employee');
         select.innerHTML = this.currentEmployees.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 
-        document.getElementById('advance-form').reset();
+        const form = document.getElementById('advance-form');
+        form.reset();
+
+        // Init date to today
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('advance-date').value = now.toISOString().slice(0, 10);
+
         document.getElementById('advance-modal').classList.remove('hidden');
     },
 
@@ -550,7 +595,7 @@ const HR = {
             employee_id: document.getElementById('advance-employee').value,
             amount: parseFloat(document.getElementById('advance-amount').value),
             reason: document.getElementById('advance-reason').value,
-            request_date: new Date().toISOString().split('T')[0],
+            request_date: document.getElementById('advance-date').value,
             status: 'pending'
         };
 
@@ -586,6 +631,21 @@ const HR = {
         }
     },
 
+    async deleteAdvance(id) {
+        if (!confirm('¿Estás seguro de eliminar este registro permanentemente?')) return;
+        try {
+            await fetch(`/api/employee-advances/${id}`, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+            Toast.success('Registro eliminado');
+            this.loadAdvances();
+        } catch (error) {
+            console.error(error);
+            Toast.error('Error al eliminar registro');
+        }
+    },
+
     // --- PAYROLLS ---
 
     async openPayrollModal(payrollId = null) {
@@ -604,43 +664,91 @@ const HR = {
         const modal = document.getElementById('payroll-modal');
         const tbody = document.getElementById('payroll-generation-tbody');
         const monthSpan = document.getElementById('payroll-month');
+        const dateInput = document.getElementById('payroll-date');
 
-        const now = new Date();
         const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        if (monthSpan) monthSpan.textContent = `${months[now.getMonth()]} ${now.getFullYear()}`;
 
-        tbody.innerHTML = this.currentEmployees.map(emp => {
-            // Calculate total pending advances for this employee
-            const employeeAdvances = pendingAdvances.filter(a => a.employee_id === emp.id);
-            const totalAdvance = employeeAdvances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
+        // Helper to update period text
+        // Store pending advances globally for re-rendering
+        this.pendingAdvances = pendingAdvances;
 
-            // Highlight deduction if there is an advance
-            const deductionStyle = totalAdvance > 0 ? "border-amber-500 bg-amber-50" : "border-gray-300 dark:border-gray-600";
+        const renderPayrollRows = (dateString) => {
+            // Parse selected date
+            const [y, m, d] = dateString.split('-').map(Number);
+            // dateString is YYYY-MM-DD. m is 1-indexed.
 
-            return `
-            <tr data-employee-id="${emp.id}" data-advances='${JSON.stringify(employeeAdvances)}'>
-                <td class="px-4 py-3">
-                    <span class="block text-sm font-medium text-gray-900 dark:text-white">${emp.name}</span>
-                    <span class="text-xs text-gray-500">${emp.position}</span>
-                </td>
-                <td class="px-4 py-3">
-                    <input type="number" class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right salary-input" value="${emp.salary}" readonly>
-                </td>
-                <td class="px-4 py-3">
-                    <input type="number" class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right bonus-input" value="0" min="0" onchange="HR.updatePayrollTotals()">
-                </td>
-                <td class="px-4 py-3">
-                    <input type="number" class="w-full px-2 py-1 border ${deductionStyle} rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right deduction-input" value="${totalAdvance}" min="0" onchange="HR.updatePayrollTotals()">
-                    ${totalAdvance > 0 ? `<div class="text-xs text-amber-600 mt-1">Adelanto pendiente</div>` : ''}
-                </td>
-                <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 total-cell">
-                    $${(parseFloat(emp.salary) - totalAdvance).toLocaleString()}
-                </td>
-            </tr>
-            `;
-        }).join('');
+            tbody.innerHTML = this.currentEmployees.map(emp => {
+                // Filter advances: Must be pending AND match the selected Month/Year
+                const employeeAdvances = this.pendingAdvances.filter(a => {
+                    if (a.employee_id !== emp.id) return false;
 
-        this.updatePayrollTotals();
+                    // a.request_date is YYYY-MM-DD
+                    if (!a.request_date) return false;
+                    const [advY, advM] = a.request_date.split('-').map(Number);
+
+                    return advY === y && advM === m;
+                });
+
+                const totalAdvance = employeeAdvances.reduce((sum, a) => sum + parseFloat(a.amount), 0);
+                const deductionStyle = totalAdvance > 0 ? "border-amber-500 bg-amber-50" : "border-gray-300 dark:border-gray-600";
+
+                return `
+                <tr data-employee-id="${emp.id}" data-advances='${JSON.stringify(employeeAdvances)}'>
+                    <td class="px-4 py-3">
+                        <span class="block text-sm font-medium text-gray-900 dark:text-white">${emp.name}</span>
+                        <span class="text-xs text-gray-500">${emp.position}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <input type="number" class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right salary-input" value="${emp.salary}" readonly>
+                    </td>
+                    <td class="px-4 py-3">
+                        <input type="number" class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right bonus-input" value="0" min="0" onchange="HR.updatePayrollTotals()">
+                    </td>
+                    <td class="px-4 py-3">
+                        <input type="number" class="w-full px-2 py-1 border ${deductionStyle} rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right deduction-input" value="${totalAdvance}" min="0" onchange="HR.updatePayrollTotals()">
+                        ${totalAdvance > 0 ? `<div class="text-xs text-amber-600 mt-1">Adelanto pendiente</div>` : ''}
+                    </td>
+                    <td class="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 total-cell">
+                        $${(parseFloat(emp.salary) - totalAdvance).toLocaleString()}
+                    </td>
+                </tr>
+                `;
+            }).join('');
+
+            this.updatePayrollTotals();
+        };
+
+        const updatePeriodText = (dateString) => {
+            if (!dateString) return;
+            const [y, m, d] = dateString.split('-').map(Number);
+            const date = new Date(y, m - 1, d);
+            if (monthSpan) monthSpan.textContent = `${months[date.getMonth()]} ${date.getFullYear()}`;
+
+            // Re-render rows when date changes logic
+            renderPayrollRows(dateString);
+        };
+
+        if (dateInput) {
+            // Set default date to NOW if empty
+            const now = new Date();
+            // Adjust to local timezone for default value
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const dateStr = now.toISOString().split('T')[0];
+
+            if (!dateInput.value) {
+                dateInput.value = dateStr;
+            }
+
+            dateInput.onchange = (e) => updatePeriodText(e.target.value);
+            // Trigger update immediately
+            updatePeriodText(dateInput.value);
+        } else {
+            // Fallback if no input found (shouldn't happen based on known HTML)
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            renderPayrollRows(now.toISOString().split('T')[0]);
+        }
+
         modal.classList.remove('hidden');
     },
 
@@ -698,12 +806,17 @@ const HR = {
             totalPayroll += total;
         });
 
+        const dateInput = document.getElementById('payroll-date');
+        const selectedDateStr = dateInput ? dateInput.value : new Date().toISOString().split('T')[0];
+        const [sYear, sMonth, sDay] = selectedDateStr.split('-').map(Number);
+        const selectedDate = new Date(sYear, sMonth - 1, sDay);
+
         const payrollData = {
-            month: new Date().getMonth(),
-            year: new Date().getFullYear(),
+            month: selectedDate.getMonth(),
+            year: selectedDate.getFullYear(),
             employees: employeesData,
             total: totalPayroll,
-            generated_date: new Date().toISOString()
+            generated_date: selectedDateStr
         };
 
         try {
@@ -716,8 +829,8 @@ const HR = {
 
             if (!response.ok) throw new Error('Error saving payroll');
 
-            // Update Advances Status
-            if (advancesToUpdate.length > 0) {
+            // Update Advances Status only on creation
+            if (!this.currentEditingId && advancesToUpdate.length > 0) {
                 // Update them sequentially (simplest for now)
                 for (const advId of advancesToUpdate) {
                     await fetch(`/api/employee-advances/${advId}`, {
@@ -728,13 +841,14 @@ const HR = {
                 }
             }
 
-            Toast.success('Nómina generada exitosamente');
+            Toast.success(this.currentEditingId ? 'Nómina actualizada' : 'Nómina generada exitosamente');
             document.getElementById('payroll-modal').classList.add('hidden');
+            this.currentEditingId = null;
             this.loadPayrolls();
-            this.loadAdvances(); // Refresh advances
+            this.loadAdvances();
         } catch (error) {
             console.error(error);
-            Toast.error('Error al generar nómina');
+            Toast.error('Error al guardar nómina');
         }
     },
 
@@ -760,12 +874,27 @@ const HR = {
     },
 
     updatePayrollSummary() {
-        const currentYear = new Date().getFullYear();
+        let year = new Date().getFullYear();
+        const globalYearInput = document.getElementById('global-year');
+
+        if (globalYearInput && globalYearInput.value) {
+            year = parseInt(globalYearInput.value);
+        }
+
         const totalYear = this.currentPayrolls
-            .filter(p => p.year === currentYear)
+            .filter(p => p.year === year)
             .reduce((sum, p) => sum + parseFloat(p.total), 0);
+
         const el = document.getElementById('total-paid-year');
-        if (el) el.textContent = `$${totalYear.toLocaleString()}`;
+        if (el) {
+            el.textContent = `$${totalYear.toLocaleString()}`;
+
+            // Update label to reflect selected year
+            const labelEl = el.previousElementSibling;
+            if (labelEl && labelEl.tagName === 'H3') {
+                labelEl.textContent = `Total Pagado (${year})`;
+            }
+        }
     },
 
     loadPayrolls() {
@@ -773,30 +902,75 @@ const HR = {
             .then(r => r.json())
             .then(data => {
                 this.currentPayrolls = data;
-                this.renderPayrolls();
+                // Initial render with current filter
+                const m = document.getElementById('global-month')?.value;
+                const y = document.getElementById('global-year')?.value;
+                this.renderPayrolls(m, y);
                 this.updatePayrollSummary();
             });
     },
 
-    renderPayrolls() {
+    async deletePayroll(id) {
+        if (!confirm('¿Eliminar este registro de nómina? Esta acción no se puede deshacer.')) return;
+        try {
+            const response = await fetch(`/api/payrolls/${id}`, {
+                method: 'DELETE',
+                headers: this.getHeaders()
+            });
+
+            if (!response.ok) throw new Error('Error deleting');
+
+            Toast.success('Nómina eliminada');
+            this.loadPayrolls();
+        } catch (error) {
+            console.error(error);
+            Toast.error('Error al eliminar nómina');
+        }
+    },
+
+    editPayroll(id) {
+        this.openPayrollModal(id);
+    },
+
+    renderPayrolls(filterMonth = null, filterYear = null) {
         const tbody = document.getElementById('payrolls-tbody');
         if (!tbody) return;
 
-        if (this.currentPayrolls.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500">No hay nóminas generadas</td></tr>`;
+        // If no filter arguments, try to read from DOM
+        if (filterMonth === null || filterYear === null) {
+            filterMonth = document.getElementById('global-month')?.value;
+            filterYear = document.getElementById('global-year')?.value;
+        }
+
+        // Apply Filter if values exist
+        let displayPayrolls = this.currentPayrolls;
+        if (filterMonth !== undefined && filterYear !== undefined) {
+            const m = parseInt(filterMonth);
+            const y = parseInt(filterYear);
+            displayPayrolls = this.currentPayrolls.filter(p => p.month === m && p.year === y);
+        }
+
+        if (displayPayrolls.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500">No hay nóminas para este periodo</td></tr>`;
             return;
         }
 
         const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        tbody.innerHTML = this.currentPayrolls.map(payroll => `
+        tbody.innerHTML = displayPayrolls.map(payroll => `
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <td class="px-6 py-4 font-medium text-gray-900 dark:text-white">${months[payroll.month]} ${payroll.year}</td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${payroll.employees.length} empleados</td>
                 <td class="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">$${parseFloat(payroll.total).toLocaleString()}</td>
                 <td class="px-6 py-4 text-gray-600 dark:text-gray-400">${new Date(payroll.generated_date || payroll.created_at).toLocaleDateString()}</td>
-                <td class="px-6 py-4">
-                     <button onclick="HR.viewPayrollDetails(${payroll.id})" class="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                <td class="px-6 py-4 flex items-center gap-1">
+                     <button onclick="HR.viewPayrollDetails(${payroll.id})" class="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Ver Detalles">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                     </button>
+                     <button onclick="HR.editPayroll(${payroll.id})" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Editar Nómina">
+                           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                     </button>
+                     <button onclick="HR.deletePayroll(${payroll.id})" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar Nómina">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                      </button>
                 </td>
             </tr>

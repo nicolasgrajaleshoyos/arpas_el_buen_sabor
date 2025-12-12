@@ -229,7 +229,7 @@ const Sales = {
                                 total: item.total,
                                 unitPrice: item.unitPrice,
                                 total: item.total,
-                                date: this.getAdjustedDate(), // Use adjusted date helper
+                                date: document.getElementById('sale-date')?.value || this.getAdjustedDate(),
                                 status: 'completed'
                             })
                         });
@@ -661,6 +661,11 @@ const Sales = {
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Precio Unitario</label>
                                     <input type="number" id="sale-price" readonly class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                                 </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de Venta</label>
+                                <input type="datetime-local" id="sale-date" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                             </div>
                             
                             <button id="add-to-cart-btn" class="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">

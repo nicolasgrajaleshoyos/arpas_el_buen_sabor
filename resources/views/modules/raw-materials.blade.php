@@ -7,7 +7,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/rawMaterials.js') }}?v=4.4"></script>
+<script src="{{ asset('js/modules/rawMaterials.js') }}?v=4.5"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('raw-materials-content').innerHTML = RawMaterials.render();

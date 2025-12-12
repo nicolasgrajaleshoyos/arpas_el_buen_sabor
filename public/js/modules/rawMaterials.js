@@ -65,6 +65,14 @@ const RawMaterials = {
         window.addEventListener('period-changed', (e) => {
             this.applyFilters();
         });
+
+        // Initialize Date Input
+        const dateInput = document.getElementById('transaction-date');
+        if (dateInput) {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            dateInput.value = now.toISOString().slice(0, 16);
+        }
     },
 
     updateTransactionUnits(materialId) {
@@ -531,6 +539,7 @@ const RawMaterials = {
         let quantity = parseFloat(document.getElementById('transaction-quantity').value);
         const notes = document.getElementById('transaction-notes').value.trim();
         const usePackageUnit = document.getElementById('use-package-unit')?.checked;
+        const customDate = document.getElementById('transaction-date')?.value;
 
         if (!materialId || !type || !quantity) {
             Toast.error('Completa todos los campos requeridos');
@@ -567,17 +576,38 @@ const RawMaterials = {
                     type: type,
                     quantity: quantity,
                     notes: notes,
-                    transaction_date: this.getAdjustedDate()
+                    notes: notes,
+                    transaction_date: customDate || this.getAdjustedDate()
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                Toast.success('Transacción registrada exitosamente');
+                // Check visibility
+                if (typeof GlobalPeriod !== 'undefined' && !GlobalPeriod.isDateInPeriod(this.getAdjustedDate())) {
+                    // Wait, getAdjustedDate() returns the DATE SENT if customDate was empty? 
+                    // No, in addTransaction we sent `customDate || this.getAdjustedDate()`. 
+                    // We should check the ACTUAL date sent.
+                    const sentDate = customDate || this.getAdjustedDate();
+                    if (!GlobalPeriod.isDateInPeriod(sentDate)) {
+                        Toast.warning('Transacción guardada, pero no visible en el periodo seleccionado');
+                    } else {
+                        Toast.success('Transacción registrada exitosamente');
+                    }
+                } else {
+                    Toast.success('Transacción registrada exitosamente');
+                }
 
                 // Reset form
                 document.getElementById('transaction-form').reset();
+
+                // Reset Date to Now (or keep? usually reset to now)
+                if (document.getElementById('transaction-date')) {
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    document.getElementById('transaction-date').value = now.toISOString().slice(0, 16);
+                }
 
                 // Reload data
                 this.loadMaterials();
@@ -1001,6 +1031,11 @@ const RawMaterials = {
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Notas</label>
                                     <textarea id="transaction-notes" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha</label>
+                                    <input type="datetime-local" id="transaction-date" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                 </div>
                                 
                                 <button type="submit" class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">

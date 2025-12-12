@@ -111,13 +111,18 @@
                 <input type="number" id="advance-amount" min="1" step="1000" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha Solicitud</label>
+                <input type="date" id="advance-date" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
+            </div>
+
 </div>
 
 <!-- Payroll Generation Modal -->
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/hr.js') }}?v=1.1"></script>
+<script src="{{ asset('js/modules/hr.js') }}?v=2.3"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('hr-content').innerHTML = HR.render();

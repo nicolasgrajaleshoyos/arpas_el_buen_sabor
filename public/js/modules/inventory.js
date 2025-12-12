@@ -250,6 +250,12 @@ const Inventory = {
         document.getElementById('replenish-product-name').textContent = product.name;
         document.getElementById('replenish-current-stock').textContent = product.stock + ' unidades';
         document.getElementById('replenish-quantity').value = '';
+
+        // Set default date to today, correcting for timezone offset
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('replenish-date').value = now.toISOString().slice(0, 16);
+
         document.getElementById('replenish-notes').value = '';
 
         document.getElementById('replenish-modal').classList.remove('hidden');
@@ -306,6 +312,7 @@ const Inventory = {
         if (!this.replenishId) return;
 
         const quantity = parseInt(document.getElementById('replenish-quantity').value);
+        const customDate = document.getElementById('replenish-date').value;
         const notes = document.getElementById('replenish-notes').value.trim();
 
         if (!quantity || quantity <= 0) {
@@ -335,7 +342,8 @@ const Inventory = {
                     productId: this.replenishId,
                     type: 'entrada',
                     quantity: quantity,
-                    description: notes || 'Reposición de inventario'
+                    description: notes || 'Reposición de inventario',
+                    custom_date: customDate
                 })
             });
 
@@ -457,6 +465,19 @@ const Inventory = {
                 <div class="mt-8">
                      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
                         <h2 class="text-xl font-bold text-gray-900 dark:text-white">Historial de Movimientos</h2>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input 
+                                type="text" 
+                                id="search-history" 
+                                class="pl-10 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm w-full md:w-64"
+                                placeholder="Buscar por producto..."
+                            >
+                        </div>
                     </div>
                      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft overflow-hidden transition-colors">
                         <div class="overflow-x-auto">
@@ -547,6 +568,11 @@ const Inventory = {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cantidad a Añadir</label>
                             <input type="number" id="replenish-quantity" min="1" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha y Hora</label>
+                            <input type="datetime-local" id="replenish-date" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" required>
                         </div>
                         
                          <div>

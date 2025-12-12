@@ -19,14 +19,16 @@ class InventoryMovementController extends Controller
             'productId' => 'required|exists:products,id',
             'type' => 'required|string',
             'quantity' => 'required|integer',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
+            'custom_date' => 'nullable|date'
         ]);
 
         $movement = InventoryMovement::create([
             'product_id' => $validated['productId'],
             'type' => $validated['type'],
             'quantity' => $validated['quantity'],
-            'description' => $validated['description'] ?? null
+            'description' => $validated['description'] ?? null,
+            'created_at' => $validated['custom_date'] ?? now()
         ]);
 
         return response()->json($movement, 201);
