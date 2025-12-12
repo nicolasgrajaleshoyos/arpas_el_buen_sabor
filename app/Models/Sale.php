@@ -12,9 +12,13 @@ class Sale extends Model
         'quantity',
         'unit_price',
         'total',
+        'description',
         'sale_date',
         'status',
-        'returned_at'
+        'returned_at',
+        'cash_amount',
+        'transfer_amount',
+        'payment_method'
     ];
 
     protected $casts = [

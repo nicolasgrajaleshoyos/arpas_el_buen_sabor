@@ -114,6 +114,7 @@ const Sales = {
                 productName: product.name,
                 quantity: quantity,
                 unitPrice: parseFloat(product.price),
+                description: document.getElementById('sale-description').value,
                 total: quantity * parseFloat(product.price)
             });
         }
@@ -123,7 +124,9 @@ const Sales = {
 
         document.getElementById('sale-product').value = '';
         document.getElementById('sale-quantity').value = '';
+        document.getElementById('sale-quantity').value = '';
         document.getElementById('sale-price').value = '';
+        document.getElementById('sale-description').value = '';
         this.currentProduct = null;
     },
 
@@ -136,7 +139,7 @@ const Sales = {
     renderCart() {
         const tbody = document.getElementById('cart-tbody');
         const totalElement = document.getElementById('cart-total');
-        const completeSaleBtn = document.getElementById('complete-sale-btn');
+        let completeSaleBtn = document.getElementById('complete-sale-btn');
 
         if (!tbody) return;
 
@@ -176,6 +179,49 @@ const Sales = {
         totalElement.textContent = '$' + total.toLocaleString();
         totalElement.className = `text-3xl font-bold text-emerald-600 dark:text-emerald-400`;
 
+        // Add Payment Method Inputs
+        const paymentContainer = document.getElementById('payment-method-container');
+        if (!paymentContainer && tbody.parentElement.parentElement) {
+            const container = document.createElement('div');
+            container.id = 'payment-method-container';
+            container.className = 'mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3';
+            container.innerHTML = `
+                <div class="flex flex-col gap-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Método de Pago (Total: $${total.toLocaleString()})</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Efectivo</label>
+                            <input type="number" id="payment-cash" value="${total}" min="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Transferencia</label>
+                            <input type="number" id="payment-transfer" value="0" min="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+                </div>
+             `;
+            // Insert before the button container
+            completeSaleBtn.parentElement.insertBefore(container, completeSaleBtn);
+        } else if (paymentContainer) {
+            // Update values if already exists (smart update)
+            const cashInput = document.getElementById('payment-cash');
+            const transferInput = document.getElementById('payment-transfer');
+            if (cashInput && transferInput) {
+                // Reset to default specific logic: if total changed, reset to full cash?
+                // Or keep ratio? For simplicity, we can verify if they sum up. If not, reset to full cash.
+                // Let's just update the label total hint.
+                const label = paymentContainer.querySelector('label');
+                if (label) label.textContent = `Método de Pago (Total: $${total.toLocaleString()})`;
+
+                // Simple logic: if new total != old total, reset default.
+                const currentSum = parseFloat(cashInput.value || 0) + parseFloat(transferInput.value || 0);
+                if (currentSum !== total) {
+                    cashInput.value = total;
+                    transferInput.value = 0;
+                }
+            }
+        }
+
         completeSaleBtn.disabled = false;
         completeSaleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         completeSaleBtn.innerHTML = `
@@ -184,7 +230,7 @@ const Sales = {
             </svg>
             Completar Venta
         `;
-        completeSaleBtn.className = `w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2`;
+        completeSaleBtn.className = `w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 mt-4`;
     },
 
     completeSale() {
@@ -195,9 +241,24 @@ const Sales = {
 
         const total = this.cart.reduce((sum, item) => sum + item.total, 0);
 
+        const cashInput = document.getElementById('payment-cash');
+        const transferInput = document.getElementById('payment-transfer');
+
+        const cashAmount = parseFloat(cashInput ? cashInput.value : total) || 0;
+        const transferAmount = parseFloat(transferInput ? transferInput.value : 0) || 0;
+
+        if (Math.abs((cashAmount + transferAmount) - total) > 0.01) {
+            this.showAlert('error', 'Montos Incorrectos', `La suma de efectivo y transferencia ($${(cashAmount + transferAmount).toLocaleString()}) debe ser igual al total ($${total.toLocaleString()})`);
+            return;
+        }
+
+        let method = 'cash';
+        if (transferAmount > 0 && cashAmount === 0) method = 'transfer';
+        else if (transferAmount > 0 && cashAmount > 0) method = 'combined';
+
         this.showConfirmAlert(
             '¿Confirmar Venta?',
-            `Total: $${total.toLocaleString()}<br>Productos: ${this.cart.length}`,
+            `Total: $${total.toLocaleString()}<br>Efectivo: $${cashAmount.toLocaleString()}<br>Transferencia: $${transferAmount.toLocaleString()}`,
             'Sí, Completar Venta',
             'Cancelar'
         ).then(async (result) => {
@@ -216,6 +277,13 @@ const Sales = {
                                 quantity: item.quantity,
                                 unitPrice: item.unitPrice,
                                 total: item.total,
+                                unitPrice: item.unitPrice,
+                                total: item.total,
+                                description: item.description,
+                                // Calculate proportional split
+                                cashAmount: (item.total / total) * cashAmount,
+                                transferAmount: (item.total / total) * transferAmount,
+                                paymentMethod: method,
                                 date: document.getElementById('sale-date')?.value || this.getAdjustedDate(),
                                 status: 'completed'
                             })
@@ -345,6 +413,31 @@ const Sales = {
         }
     },
 
+    showPaymentDetails(saleId) {
+        const sale = this.currentSales.find(s => s.id === saleId);
+        if (!sale) return;
+
+        const cash = parseFloat(sale.cash_amount || 0);
+        const transfer = parseFloat(sale.transfer_amount || 0);
+
+        this.showAlert('info', 'Detalle de Pago', `
+            <div class="space-y-3 text-left">
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-600">Efectivo:</span>
+                    <span class="font-bold text-gray-900 dark:text-white">$${cash.toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-600">Transferencia:</span>
+                    <span class="font-bold text-gray-900 dark:text-white">$${transfer.toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between pt-1">
+                    <span class="text-gray-900 font-semibold">Total:</span>
+                    <span class="font-bold text-emerald-600">$${(cash + transfer).toLocaleString()}</span>
+                </div>
+            </div>
+        `);
+    },
+
     async loadSales() {
         try {
             const res = await fetch('/api/sales');
@@ -374,9 +467,16 @@ const Sales = {
         const validSales = (this.currentSales || []).filter(s => s.status !== 'returned');
         const count = validSales.length;
         const total = validSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
+        const totalCash = validSales.reduce((sum, s) => sum + parseFloat(s.cash_amount || (s.payment_method !== 'transfer' ? s.total : 0)), 0);
+        const totalTransfer = validSales.reduce((sum, s) => sum + parseFloat(s.transfer_amount || (s.payment_method === 'transfer' ? s.total : 0)), 0);
 
         countEl.textContent = count;
         totalEl.textContent = '$' + total.toLocaleString();
+
+        const cashEl = document.getElementById('header-stats-cash');
+        const transferEl = document.getElementById('header-stats-transfer');
+        if (cashEl) cashEl.textContent = '$' + totalCash.toLocaleString();
+        if (transferEl) transferEl.textContent = '$' + totalTransfer.toLocaleString();
 
         if (typeof GlobalPeriod !== 'undefined') {
             const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -416,7 +516,8 @@ const Sales = {
         if (searchInput && searchInput.value) {
             const term = searchInput.value.toLowerCase();
             filteredSales = filteredSales.filter(s =>
-                (s.product_name || s.productName).toLowerCase().includes(term)
+                (s.product_name || s.productName).toLowerCase().includes(term) ||
+                (s.description || '').toLowerCase().includes(term)
             );
         }
 
@@ -429,10 +530,41 @@ const Sales = {
 
         if (statsContainer && countEl && moneyEl) {
             if (isFiltering) {
-                const totalQty = filteredSales.reduce((sum, s) => sum + s.quantity, 0);
+                const totalCount = filteredSales.length;
                 const totalMoney = filteredSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
-                countEl.textContent = totalQty;
+
+                // Calculate split stats
+                const cashStats = filteredSales.reduce((acc, s) => {
+                    const amount = parseFloat(s.cash_amount || (s.payment_method !== 'transfer' ? s.total : 0));
+                    if (amount > 0) {
+                        acc.amount += amount;
+                        acc.count++;
+                    }
+                    return acc;
+                }, { amount: 0, count: 0 });
+
+                const transferStats = filteredSales.reduce((acc, s) => {
+                    const amount = parseFloat(s.transfer_amount || (s.payment_method === 'transfer' ? s.total : 0));
+                    if (amount > 0) {
+                        acc.amount += amount;
+                        acc.count++;
+                    }
+                    return acc;
+                }, { amount: 0, count: 0 });
+
+                countEl.textContent = totalCount;
                 moneyEl.textContent = '$' + totalMoney.toLocaleString();
+
+                const cashEl = document.getElementById('history-stats-cash');
+                const cashCountEl = document.getElementById('history-stats-cash-count');
+                const transferEl = document.getElementById('history-stats-transfer');
+                const transferCountEl = document.getElementById('history-stats-transfer-count');
+
+                if (cashEl) cashEl.textContent = '$' + cashStats.amount.toLocaleString();
+                if (cashCountEl) cashCountEl.textContent = cashStats.count;
+                if (transferEl) transferEl.textContent = '$' + transferStats.amount.toLocaleString();
+                if (transferCountEl) transferCountEl.textContent = transferStats.count;
+
                 statsContainer.classList.remove('hidden');
                 statsContainer.classList.add('flex');
             } else {
@@ -474,6 +606,22 @@ const Sales = {
                 </td>
                 <td class="px-4 py-3">
                     <div class="text-sm text-gray-900 dark:text-white">${sale.product_name || sale.productName}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-[150px]" title="${sale.description || ''}">${sale.description || '-'}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full w-fit ${sale.payment_method === 'cash' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    sale.payment_method === 'transfer' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                }">
+                            ${sale.payment_method === 'cash' ? 'Efectivo' : (sale.payment_method === 'transfer' ? 'Transf.' : 'Mixto')}
+                        </span>
+                        ${sale.payment_method === 'combined' ? `
+                            <span class="text-[10px] text-blue-500 hover:text-blue-700 cursor-pointer underline mt-0.5" onclick="Sales.showPaymentDetails(${sale.id})">Ver detalle</span>
+                        ` : ''}
+                    </div>
                 </td>
                 <td class="px-4 py-3 text-center">
                     <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${sale.quantity}</span>
@@ -518,14 +666,22 @@ const Sales = {
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">💰 Punto de Venta</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-1">Registra ventas y gestiona el inventario automáticamente</p>
                     </div>
-                    <div class="flex gap-4 flex-wrap">
-                        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl px-6 py-3 shadow-lg flex-1 md:flex-none">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto">
+                        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl px-4 py-3 shadow-lg">
                             <div class="text-xs font-medium opacity-90">Ventas (${periodLabel})</div>
-                            <div id="header-stats-count" class="text-2xl font-bold">${periodCount}</div>
+                            <div id="header-stats-count" class="text-xl font-bold">${periodCount}</div>
                         </div>
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl px-6 py-3 shadow-lg flex-1 md:flex-none">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl px-4 py-3 shadow-lg">
                             <div class="text-xs font-medium opacity-90">Total (${periodLabel})</div>
-                            <div id="header-stats-total" class="text-2xl font-bold">$${periodTotal.toLocaleString()}</div>
+                            <div id="header-stats-total" class="text-xl font-bold">$${periodTotal.toLocaleString()}</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-xl px-4 py-3 shadow-sm">
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Efectivo</div>
+                            <div id="header-stats-cash" class="text-xl font-bold">$0</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-xl px-4 py-3 shadow-sm">
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Transf.</div>
+                            <div id="header-stats-transfer" class="text-xl font-bold">$0</div>
                         </div>
                     </div>
                 </div>
@@ -564,6 +720,11 @@ const Sales = {
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de Venta</label>
                                 <input type="datetime-local" id="sale-date" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Descripción (Opcional)</label>
+                                <textarea id="sale-description" rows="2" placeholder="Notas adicionales..." class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
                             </div>
                             
                             <button id="add-to-cart-btn" class="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
@@ -652,15 +813,23 @@ const Sales = {
                         </div>
                     </div>
                         
-                    <div id="history-stats-container" class="hidden items-center gap-6 bg-purple-50 dark:bg-purple-900/20 px-4 py-2 rounded-lg border border-purple-100 dark:border-purple-800 animate-fade-in">
+                    <div id="history-stats-container" class="hidden flex-wrap items-center gap-6 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 rounded-lg border border-purple-100 dark:border-purple-800 animate-fade-in">
                         <div class="flex items-center gap-2">
-                            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Cant. Total:</span>
-                            <span id="history-stats-count" class="text-lg font-bold text-gray-900 dark:text-white">0</span>
-                        </div>
-                        <div class="h-4 w-px bg-purple-200 dark:bg-purple-700"></div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total Dinero:</span>
+                            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total:</span>
                             <span id="history-stats-money" class="text-lg font-bold text-emerald-600 dark:text-emerald-400">$0</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-count">0</span> tx)</span>
+                        </div>
+                        <div class="h-4 w-px bg-purple-200 dark:bg-purple-700 hidden md:block"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Efectivo:</span>
+                            <span id="history-stats-cash" class="text-lg font-bold text-gray-900 dark:text-white">$0</span>
+                             <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-cash-count">0</span> tx)</span>
+                        </div>
+                        <div class="h-4 w-px bg-purple-200 dark:bg-purple-700 hidden md:block"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Transf:</span>
+                            <span id="history-stats-transfer" class="text-lg font-bold text-gray-900 dark:text-white">$0</span>
+                             <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-transfer-count">0</span> tx)</span>
                         </div>
                     </div>
 
@@ -670,6 +839,8 @@ const Sales = {
                                 <tr>
                                     <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Fecha</th>
                                     <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Producto</th>
+                                    <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Descripción</th>
+                                    <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Pago</th>
                                     <th class="text-center text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Cant.</th>
                                     <th class="text-right text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Total</th>
                                     <th class="text-center text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3"></th>

@@ -10,7 +10,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/modules/returns.js') }}?v=2.6"></script>
+<script src="{{ asset('js/modules/returns.js') }}?v=3.0"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof Returns !== 'undefined') {

@@ -28,9 +28,13 @@ class SaleController extends Controller
             'quantity' => 'required|integer|min:1',
             'unitPrice' => 'required|numeric',
             'total' => 'required|numeric',
+            'description' => 'nullable|string',
             'date' => 'nullable|date',
             'status' => 'nullable|string',
-            'returnedAt' => 'nullable|date'
+            'returnedAt' => 'nullable|date',
+            'cashAmount' => 'nullable|numeric|min:0',
+            'transferAmount' => 'nullable|numeric|min:0',
+            'paymentMethod' => 'nullable|string'
         ]);
 
         // Map JS camelCase to DB snake_case & Decrement Stock
@@ -49,9 +53,13 @@ class SaleController extends Controller
                 'quantity' => $validated['quantity'],
                 'unit_price' => $validated['unitPrice'],
                 'total' => $validated['total'],
+                'description' => $validated['description'] ?? null,
                 'sale_date' => $validated['date'] ?? now(),
                 'status' => $validated['status'] ?? 'completed',
-                'returned_at' => $validated['returnedAt'] ?? null
+                'returned_at' => $validated['returnedAt'] ?? null,
+                'cash_amount' => $validated['cashAmount'] ?? 0,
+                'transfer_amount' => $validated['transferAmount'] ?? 0,
+                'payment_method' => $validated['paymentMethod'] ?? 'cash'
             ]);
         });
 

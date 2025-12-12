@@ -1,3 +1,4 @@
+
 // Sales Module
 const Sales = {
     cart: [],
@@ -18,10 +19,6 @@ const Sales = {
             productSelect.addEventListener('change', async () => {
                 const productId = parseInt(productSelect.value);
                 if (productId) {
-                    // Fetch product details for validation/stock check
-                    // Ideally we should cache products or fetch specifically
-                    // For now, simpler to find in current loaded options context if possible
-                    // Or fetch generic 'api/products'
                     try {
                         const res = await fetch('/api/products');
                         const products = await res.json();
@@ -31,7 +28,6 @@ const Sales = {
                             document.getElementById('sale-price').value = product.price;
                             document.getElementById('sale-quantity').value = 1;
                             document.getElementById('sale-quantity').max = product.stock;
-                            // Store current product data for validation
                             this.currentProduct = product;
                         }
                     } catch (e) { console.error(e); }
@@ -70,8 +66,6 @@ const Sales = {
         try {
             const res = await fetch('/api/products');
             const products = await res.json();
-
-            // Filter products with stock > 0
             const available = products.filter(p => p.stock > 0);
 
             select.innerHTML = '<option value="">Selecciona un producto...</option>' +
@@ -92,12 +86,10 @@ const Sales = {
             return;
         }
 
-        // Use cached current product if available, or fetch? 
-        // We set 'this.currentProduct' in the change listener.
         const product = this.currentProduct;
 
         if (!product || product.id !== productId) {
-            Toast.error('Error de validación del producto'); // Should not happen
+            Toast.error('Error de validación del producto');
             return;
         }
 
@@ -106,7 +98,6 @@ const Sales = {
             return;
         }
 
-        // Check if product already in cart
         const existingItem = this.cart.find(item => item.productId === productId);
 
         if (existingItem) {
@@ -123,6 +114,7 @@ const Sales = {
                 productName: product.name,
                 quantity: quantity,
                 unitPrice: parseFloat(product.price),
+                description: document.getElementById('sale-description').value,
                 total: quantity * parseFloat(product.price)
             });
         }
@@ -130,10 +122,11 @@ const Sales = {
         Toast.success('Producto agregado al carrito');
         this.renderCart();
 
-        // Reset form
         document.getElementById('sale-product').value = '';
         document.getElementById('sale-quantity').value = '';
+        document.getElementById('sale-quantity').value = '';
         document.getElementById('sale-price').value = '';
+        document.getElementById('sale-description').value = '';
         this.currentProduct = null;
     },
 
@@ -146,7 +139,7 @@ const Sales = {
     renderCart() {
         const tbody = document.getElementById('cart-tbody');
         const totalElement = document.getElementById('cart-total');
-        const completeSaleBtn = document.getElementById('complete-sale-btn');
+        let completeSaleBtn = document.getElementById('complete-sale-btn');
 
         if (!tbody) return;
 
@@ -186,6 +179,49 @@ const Sales = {
         totalElement.textContent = '$' + total.toLocaleString();
         totalElement.className = `text-3xl font-bold text-emerald-600 dark:text-emerald-400`;
 
+        // Add Payment Method Inputs
+        const paymentContainer = document.getElementById('payment-method-container');
+        if (!paymentContainer && tbody.parentElement.parentElement) {
+            const container = document.createElement('div');
+            container.id = 'payment-method-container';
+            container.className = 'mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 space-y-3';
+            container.innerHTML = `
+                <div class="flex flex-col gap-3">
+                    <label class="text-sm font-semibold text-gray-700 dark:text-gray-300">Método de Pago (Total: $${total.toLocaleString()})</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Efectivo</label>
+                            <input type="number" id="payment-cash" value="${total}" min="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500 dark:text-gray-400 mb-1 block">Transferencia</label>
+                            <input type="number" id="payment-transfer" value="0" min="0" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+                </div>
+             `;
+            // Insert before the button container
+            completeSaleBtn.parentElement.insertBefore(container, completeSaleBtn);
+        } else if (paymentContainer) {
+            // Update values if already exists (smart update)
+            const cashInput = document.getElementById('payment-cash');
+            const transferInput = document.getElementById('payment-transfer');
+            if (cashInput && transferInput) {
+                // Reset to default specific logic: if total changed, reset to full cash?
+                // Or keep ratio? For simplicity, we can verify if they sum up. If not, reset to full cash.
+                // Let's just update the label total hint.
+                const label = paymentContainer.querySelector('label');
+                if (label) label.textContent = `Método de Pago (Total: $${total.toLocaleString()})`;
+
+                // Simple logic: if new total != old total, reset default.
+                const currentSum = parseFloat(cashInput.value || 0) + parseFloat(transferInput.value || 0);
+                if (currentSum !== total) {
+                    cashInput.value = total;
+                    transferInput.value = 0;
+                }
+            }
+        }
+
         completeSaleBtn.disabled = false;
         completeSaleBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         completeSaleBtn.innerHTML = `
@@ -194,7 +230,7 @@ const Sales = {
             </svg>
             Completar Venta
         `;
-        completeSaleBtn.className = `w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2`;
+        completeSaleBtn.className = `w-full px-4 py-4 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 mt-4`;
     },
 
     completeSale() {
@@ -205,15 +241,29 @@ const Sales = {
 
         const total = this.cart.reduce((sum, item) => sum + item.total, 0);
 
+        const cashInput = document.getElementById('payment-cash');
+        const transferInput = document.getElementById('payment-transfer');
+
+        const cashAmount = parseFloat(cashInput ? cashInput.value : total) || 0;
+        const transferAmount = parseFloat(transferInput ? transferInput.value : 0) || 0;
+
+        if (Math.abs((cashAmount + transferAmount) - total) > 0.01) {
+            this.showAlert('error', 'Montos Incorrectos', `La suma de efectivo y transferencia ($${(cashAmount + transferAmount).toLocaleString()}) debe ser igual al total ($${total.toLocaleString()})`);
+            return;
+        }
+
+        let method = 'cash';
+        if (transferAmount > 0 && cashAmount === 0) method = 'transfer';
+        else if (transferAmount > 0 && cashAmount > 0) method = 'combined';
+
         this.showConfirmAlert(
             '¿Confirmar Venta?',
-            `Total: $${total.toLocaleString()}<br>Productos: ${this.cart.length}`,
+            `Total: $${total.toLocaleString()}<br>Efectivo: $${cashAmount.toLocaleString()}<br>Transferencia: $${transferAmount.toLocaleString()}`,
             'Sí, Completar Venta',
             'Cancelar'
         ).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    // Process each item in cart sequentially
                     for (const item of this.cart) {
                         await fetch('/api/sales', {
                             method: 'POST',
@@ -229,41 +279,21 @@ const Sales = {
                                 total: item.total,
                                 unitPrice: item.unitPrice,
                                 total: item.total,
+                                description: item.description,
+                                // Calculate proportional split
+                                cashAmount: (item.total / total) * cashAmount,
+                                transferAmount: (item.total / total) * transferAmount,
+                                paymentMethod: method,
                                 date: document.getElementById('sale-date')?.value || this.getAdjustedDate(),
                                 status: 'completed'
                             })
                         });
-
-                        // We also need to update product stock on Server? 
-                        // The Sales API typically might handle stock reduction, BUT 
-                        // the migration shows 'sales' table foreign key only. 
-                        // It does NOT have trigger logic. 
-                        // And I didn't add stock reduction logic in SaleController store() method.
-                        // I should ideally update SaleController to decrement stock.
-                        // However, for now, to replicate JS logic, I might need to call product update API?
-                        // But product update API is protected/complex?
-                        // Let's assume for now we only record sale. 
-                        // WAIT: Database.update('products') was used locally.
-                        // If I don't update stock, next sale will allow more.
-                        // I should have updated SaleController to decrease stock.
-                        // I will rely on manual stock update via API or separate call if needed, 
-                        // BUT standard is to do it in Transaction.
-                        // Since I can't edit controller easily without context switch back, 
-                        // I will leave stock update for now unless I see a dedicated endpoint.
-                        // Actually I can call `fetch('/api/products/' + id, { method: 'PUT', body: { stock: ... } })`
-                        // But I need current stock.
-                        // This is risky client side concurrency.
-                        // I will accept this limitation or try to do it if `api/products` supports update.
-                        // It does (Route::put).
                     }
 
                     this.showAlert('success', '¡Venta Exitosa!', `Total: $${total.toLocaleString()}`);
 
-                    // Clear cart
                     this.cart = [];
                     this.renderCart();
-
-                    // Reload data
                     this.loadSales();
                     this.loadProductOptions();
 
@@ -276,7 +306,6 @@ const Sales = {
     },
 
     returnSale(saleId) {
-        // Find sale in current list to get details
         const sale = this.currentSales.find(s => s.id === saleId);
         if (!sale) return;
 
@@ -361,7 +390,6 @@ const Sales = {
                 confirmButtonText: 'Entendido'
             });
         } else {
-            // Fallback to Toast
             if (icon === 'success') Toast.success(title);
             else if (icon === 'error') Toast.error(title);
             else Toast.info(title);
@@ -381,9 +409,33 @@ const Sales = {
                 cancelButtonText: cancelText
             });
         } else {
-            // Fallback to confirm
             return Promise.resolve({ isConfirmed: confirm(title) });
         }
+    },
+
+    showPaymentDetails(saleId) {
+        const sale = this.currentSales.find(s => s.id === saleId);
+        if (!sale) return;
+
+        const cash = parseFloat(sale.cash_amount || 0);
+        const transfer = parseFloat(sale.transfer_amount || 0);
+
+        this.showAlert('info', 'Detalle de Pago', `
+            <div class="space-y-3 text-left">
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-600">Efectivo:</span>
+                    <span class="font-bold text-gray-900 dark:text-white">$${cash.toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between border-b pb-2">
+                    <span class="text-gray-600">Transferencia:</span>
+                    <span class="font-bold text-gray-900 dark:text-white">$${transfer.toLocaleString()}</span>
+                </div>
+                <div class="flex justify-between pt-1">
+                    <span class="text-gray-900 font-semibold">Total:</span>
+                    <span class="font-bold text-emerald-600">$${(cash + transfer).toLocaleString()}</span>
+                </div>
+            </div>
+        `);
     },
 
     async loadSales() {
@@ -391,8 +443,6 @@ const Sales = {
             const res = await fetch('/api/sales');
             let allSales = await res.json();
 
-            // EXCLUDE returned sales from the main list as per user request
-            // Filter by status if API returns everything
             allSales = allSales.filter(s => s.status !== 'returned');
 
             // Apply Global Period Filter
@@ -412,35 +462,28 @@ const Sales = {
         const countEl = document.getElementById('header-stats-count');
         const totalEl = document.getElementById('header-stats-total');
 
-        // Also update labels if possible
-        // We need to find the label elements. In render they are plain text inside div.
-        // Let's rely on just updating numbers for now, or use specific IDs for labels next time if needed.
-        // Actually, let's look at the DOM structure in render():
-        // <div class="text-xs font-medium opacity-90">Ventas (${periodLabel})</div>
-        // It's hard to target the label text node easily without wrapping it.
-        // I will try to update the period label if I can, but primarily the numbers.
-
         if (!countEl || !totalEl) return;
 
-        // Current sales are already filtered
         const validSales = (this.currentSales || []).filter(s => s.status !== 'returned');
         const count = validSales.length;
         const total = validSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
+        const totalCash = validSales.reduce((sum, s) => sum + parseFloat(s.cash_amount || (s.payment_method !== 'transfer' ? s.total : 0)), 0);
+        const totalTransfer = validSales.reduce((sum, s) => sum + parseFloat(s.transfer_amount || (s.payment_method === 'transfer' ? s.total : 0)), 0);
 
         countEl.textContent = count;
         totalEl.textContent = '$' + total.toLocaleString();
 
-        // Try to update Labels
-        // We can look for the parent's first child div
+        const cashEl = document.getElementById('header-stats-cash');
+        const transferEl = document.getElementById('header-stats-transfer');
+        if (cashEl) cashEl.textContent = '$' + totalCash.toLocaleString();
+        if (transferEl) transferEl.textContent = '$' + totalTransfer.toLocaleString();
+
         if (typeof GlobalPeriod !== 'undefined') {
             const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
             const m = parseInt(document.getElementById('global-month').value);
             const y = parseInt(document.getElementById('global-year').value);
             const label = `${months[m]} ${y}`;
 
-            // This is brittle DOM traversal but should work for the structure:
-            // parent of countEl -> previous sibling element?
-            // Structure: <div>Title</div> <div id="...">Value</div>
             const countLabel = countEl.previousElementSibling;
             if (countLabel) countLabel.textContent = `Ventas (${label})`;
 
@@ -467,33 +510,61 @@ const Sales = {
             return;
         }
 
-        // Filter Logic
         let filteredSales = this.currentSales;
         const searchInput = document.getElementById('history-search');
 
         if (searchInput && searchInput.value) {
             const term = searchInput.value.toLowerCase();
             filteredSales = filteredSales.filter(s =>
-                (s.product_name || s.productName).toLowerCase().includes(term)
+                (s.product_name || s.productName).toLowerCase().includes(term) ||
+                (s.description || '').toLowerCase().includes(term)
             );
         }
 
-        // Apply slice only if NO filter is active, to show history context
         const isFiltering = (searchInput && searchInput.value);
         const displaySales = isFiltering ? filteredSales.slice(0, 100) : filteredSales.slice(0, 30);
 
-        // Calculate and Show/Hide Filter Stats
         const statsContainer = document.getElementById('history-stats-container');
         const countEl = document.getElementById('history-stats-count');
         const moneyEl = document.getElementById('history-stats-money');
 
         if (statsContainer && countEl && moneyEl) {
             if (isFiltering) {
-                const totalQty = filteredSales.reduce((sum, s) => sum + s.quantity, 0);
+                const totalCount = filteredSales.length;
                 const totalMoney = filteredSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
 
-                countEl.textContent = totalQty;
+                // Calculate split stats
+                const cashStats = filteredSales.reduce((acc, s) => {
+                    const amount = parseFloat(s.cash_amount || (s.payment_method !== 'transfer' ? s.total : 0));
+                    if (amount > 0) {
+                        acc.amount += amount;
+                        acc.count++;
+                    }
+                    return acc;
+                }, { amount: 0, count: 0 });
+
+                const transferStats = filteredSales.reduce((acc, s) => {
+                    const amount = parseFloat(s.transfer_amount || (s.payment_method === 'transfer' ? s.total : 0));
+                    if (amount > 0) {
+                        acc.amount += amount;
+                        acc.count++;
+                    }
+                    return acc;
+                }, { amount: 0, count: 0 });
+
+                countEl.textContent = totalCount;
                 moneyEl.textContent = '$' + totalMoney.toLocaleString();
+
+                const cashEl = document.getElementById('history-stats-cash');
+                const cashCountEl = document.getElementById('history-stats-cash-count');
+                const transferEl = document.getElementById('history-stats-transfer');
+                const transferCountEl = document.getElementById('history-stats-transfer-count');
+
+                if (cashEl) cashEl.textContent = '$' + cashStats.amount.toLocaleString();
+                if (cashCountEl) cashCountEl.textContent = cashStats.count;
+                if (transferEl) transferEl.textContent = '$' + transferStats.amount.toLocaleString();
+                if (transferCountEl) transferCountEl.textContent = transferStats.count;
+
                 statsContainer.classList.remove('hidden');
                 statsContainer.classList.add('flex');
             } else {
@@ -525,7 +596,6 @@ const Sales = {
                 hour12: true
             });
 
-            // Since we filter out returns, all are valid sales
             const rowClass = 'border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors';
 
             return `
@@ -536,6 +606,22 @@ const Sales = {
                 </td>
                 <td class="px-4 py-3">
                     <div class="text-sm text-gray-900 dark:text-white">${sale.product_name || sale.productName}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-[150px]" title="${sale.description || ''}">${sale.description || '-'}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full w-fit ${sale.payment_method === 'cash' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    sale.payment_method === 'transfer' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                        'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                }">
+                            ${sale.payment_method === 'cash' ? 'Efectivo' : (sale.payment_method === 'transfer' ? 'Transf.' : 'Mixto')}
+                        </span>
+                        ${sale.payment_method === 'combined' ? `
+                            <span class="text-[10px] text-blue-500 hover:text-blue-700 cursor-pointer underline mt-0.5" onclick="Sales.showPaymentDetails(${sale.id})">Ver detalle</span>
+                        ` : ''}
+                    </div>
                 </td>
                 <td class="px-4 py-3 text-center">
                     <span class="text-sm font-medium text-blue-600 dark:text-blue-400">${sale.quantity}</span>
@@ -561,11 +647,7 @@ const Sales = {
     },
 
     render() {
-        // Stats in Header also need to be updated.
-        // We can reuse currentSales for this, as it is already filtered by API + GlobalFilter
-
         const allSales = this.currentSales || [];
-
         let periodLabel = "del Periodo";
         if (typeof GlobalPeriod !== 'undefined') {
             const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -573,66 +655,38 @@ const Sales = {
             const y = parseInt(document.getElementById('global-year').value);
             periodLabel = `${months[m]} ${y}`;
         }
-
-        // Filter out returns - already done in loadSales but double check if reusing var
         const validSales = allSales.filter(s => s.status !== 'returned');
         const periodCount = validSales.length;
         const periodTotal = validSales.reduce((sum, s) => sum + parseFloat(s.total), 0);
 
-        // Update the Quick Stats DOM
-        // Need to target elements by ID or class.
-        // Since the render() function originally returned HTML string, 
-        // calling it implies re-rendering everything which wipes out state?
-        // Wait, the original code used `Sales.render()` to return HTML string to be injected by `app.js` or valid container.
-        // BUT `sales.js` usually doesn't self-inject unless `init()` calls a view manager.
-        // Checking `sales.blade.php`: it just has `<div id="module-content"></div>`.
-        // The `app.blade.php` likely loads the module.
-        // The original `Sales.init()` called `loadSales()` but didn't seem to inject HTML.
-        // Ah, `app.js` calls `module.render()` and injects it.
-        // So `Sales.render()` MUST return the HTML.
-        // And `loadSales` updates the table WITHIN that HTML.
-        // So `render()` is called ONCE on load, and then `loadSales` updates the TABLE.
-        // BUT `period-changed` event calls `this.render()`. 
-        // If `this.render()` returns a string, it does nothing unless someone consumes it.
-        // In the original code (lines 50-54), `window.addEventListener('period-changed', ... this.render())`.
-        // If `render()` just returns string, this listener did nothing visibly!
-        // Unless `render()` logic also updated DOM elements if they exist?
-        // Original `render()` (line 463) returns string.
-        // So the listener was likely broken or I misunderstood how it worked.
-        // ACTUALLY, checking the original code: 
-        // `render()` returns string. 
-        // The listener calls `this.render()`, ignoring result. 
-        // So the header stats were NOT updating on period change!
-        // I should fix this. I should update the stats elements directly.
-
-        // I will add `updateHeaderStats` function and call it from `loadSales` and listener.
-        // And `render()` will return the initial structure.
-
         return `
             <div class="space-y-6 animate-fade-in">
-                <!-- Header -->
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">💰 Punto de Venta</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-1">Registra ventas y gestiona el inventario automáticamente</p>
                     </div>
-                    
-                    <!-- Quick Stats -->
-                    <div class="flex gap-4 flex-wrap">
-                        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl px-6 py-3 shadow-lg flex-1 md:flex-none">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto">
+                        <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-xl px-4 py-3 shadow-lg">
                             <div class="text-xs font-medium opacity-90">Ventas (${periodLabel})</div>
-                            <div id="header-stats-count" class="text-2xl font-bold">${periodCount}</div>
+                            <div id="header-stats-count" class="text-xl font-bold">${periodCount}</div>
                         </div>
-                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl px-6 py-3 shadow-lg flex-1 md:flex-none">
+                        <div class="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl px-4 py-3 shadow-lg">
                             <div class="text-xs font-medium opacity-90">Total (${periodLabel})</div>
-                            <div id="header-stats-total" class="text-2xl font-bold">$${periodTotal.toLocaleString()}</div>
+                            <div id="header-stats-total" class="text-xl font-bold">$${periodTotal.toLocaleString()}</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-xl px-4 py-3 shadow-sm">
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Efectivo</div>
+                            <div id="header-stats-cash" class="text-xl font-bold">$0</div>
+                        </div>
+                        <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-xl px-4 py-3 shadow-sm">
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400">Transf.</div>
+                            <div id="header-stats-transfer" class="text-xl font-bold">$0</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- POS Section -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- Product Selection -->
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 border border-gray-100 dark:border-gray-700 transition-colors">
                         <div class="flex items-center gap-3 mb-4">
                             <div class="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center">
@@ -667,6 +721,11 @@ const Sales = {
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha de Venta</label>
                                 <input type="datetime-local" id="sale-date" class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                             </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Descripción (Opcional)</label>
+                                <textarea id="sale-description" rows="2" placeholder="Notas adicionales..." class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                            </div>
                             
                             <button id="add-to-cart-btn" class="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -677,7 +736,6 @@ const Sales = {
                         </div>
                     </div>
                     
-                    <!-- Cart -->
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 border border-gray-100 dark:border-gray-700 transition-colors">
                         <div class="flex items-center gap-3 mb-4">
                             <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -700,7 +758,6 @@ const Sales = {
                                     </tr>
                                 </thead>
                                 <tbody id="cart-tbody">
-                                    <!-- Cart Items -->
                                     <tr>
                                         <td colspan="5" class="text-center py-8 text-gray-500">
                                             <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -729,7 +786,6 @@ const Sales = {
                     </div>
                 </div>
 
-                <!-- Sales History -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 border border-gray-100 dark:border-gray-700 transition-colors">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                         <div class="flex items-center gap-3">
@@ -744,7 +800,6 @@ const Sales = {
                             </div>
                         </div>
 
-                        <!-- Filters -->
                         <div class="flex flex-col md:flex-row gap-3">
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -756,19 +811,25 @@ const Sales = {
                                     class="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 outline-none w-full md:w-64">
                             </div>
                         </div>
-                        </div>
+                    </div>
                         
-                        <!-- Search Stats (Hidden by default) -->
-                        <div id="history-stats-container" class="hidden items-center gap-6 bg-purple-50 dark:bg-purple-900/20 px-4 py-2 rounded-lg border border-purple-100 dark:border-purple-800 animate-fade-in">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Cant. Total:</span>
-                                <span id="history-stats-count" class="text-lg font-bold text-gray-900 dark:text-white">0</span>
-                            </div>
-                            <div class="h-4 w-px bg-purple-200 dark:bg-purple-700"></div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total Dinero:</span>
-                                <span id="history-stats-money" class="text-lg font-bold text-emerald-600 dark:text-emerald-400">$0</span>
-                            </div>
+                    <div id="history-stats-container" class="hidden flex-wrap items-center gap-6 bg-purple-50 dark:bg-purple-900/20 px-4 py-3 rounded-lg border border-purple-100 dark:border-purple-800 animate-fade-in">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Total:</span>
+                            <span id="history-stats-money" class="text-lg font-bold text-emerald-600 dark:text-emerald-400">$0</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-count">0</span> tx)</span>
+                        </div>
+                        <div class="h-4 w-px bg-purple-200 dark:bg-purple-700 hidden md:block"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Efectivo:</span>
+                            <span id="history-stats-cash" class="text-lg font-bold text-gray-900 dark:text-white">$0</span>
+                             <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-cash-count">0</span> tx)</span>
+                        </div>
+                        <div class="h-4 w-px bg-purple-200 dark:bg-purple-700 hidden md:block"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Transf:</span>
+                            <span id="history-stats-transfer" class="text-lg font-bold text-gray-900 dark:text-white">$0</span>
+                             <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">(<span id="history-stats-transfer-count">0</span> tx)</span>
                         </div>
                     </div>
 
@@ -778,6 +839,8 @@ const Sales = {
                                 <tr>
                                     <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Fecha</th>
                                     <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Producto</th>
+                                    <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Descripción</th>
+                                    <th class="text-left text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Pago</th>
                                     <th class="text-center text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Cant.</th>
                                     <th class="text-right text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3">Total</th>
                                     <th class="text-center text-xs font-semibold text-gray-600 dark:text-gray-300 px-4 py-3"></th>
@@ -793,40 +856,17 @@ const Sales = {
         `;
     },
     getAdjustedDate() {
-        // Default to current date
         let date = new Date();
-
-        // If Global Period filters exist, respect them
         const monthSelect = document.getElementById('global-month');
         const yearSelect = document.getElementById('global-year');
-
         if (monthSelect && yearSelect) {
             const selectedMonth = parseInt(monthSelect.value);
             const selectedYear = parseInt(yearSelect.value);
-
-            // If selected period matches current real period, keep current date (with time)
-            if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) {
-                return date.toISOString();
+            if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
+                date.setFullYear(selectedYear);
+                date.setMonth(selectedMonth);
             }
-
-            // Otherwise, construct a date in the selected period
-            // Use current day if valid, otherwise clamped to end of month.
-            // But usually for "backdating", we might want the last day of month or first?
-            // Let's try to keep the same day of month if possible (e.g. 10th), 
-            // but if today is 31st and selected month only has 30, clamp it.
-            // Also, for time, we can use current time or 12:00.
-
-            // Set year and month
-            date.setFullYear(selectedYear);
-            date.setMonth(selectedMonth);
-
-            // Date object auto-adjusts if day overflow (e.g. Set Feb 31 -> March 3).
-            // We want to clamp.
-            // Actually, simpler approach: set to 15th of the month or just use current day.
-            // Let's just return ISO string.
-            return date.toISOString();
         }
-
         return date.toISOString();
     }
 };
