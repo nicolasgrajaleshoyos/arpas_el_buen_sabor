@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - Arepas el Buen Sabor</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- SweetAlert2 para alertas bonitas -->
@@ -101,14 +102,14 @@
 
             <form id="login-form" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Usuario</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <input type="text" id="username" class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all bg-gray-50 focus:bg-white" placeholder="Ej: admin" required>
+                        <input type="email" id="email" class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all bg-gray-50 focus:bg-white" placeholder="ejemplo@correo.com" required>
                     </div>
                 </div>
                 
@@ -143,55 +144,60 @@
         </div>
     </div>
 
-    <script src="{{ asset('js/database.js') }}"></script>
     <script>
-        // Initialize DB if needed
-        Database.init();
-
-        document.getElementById('login-form').addEventListener('submit', function(e) {
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             
-            // Simple validation against local database
-            const users = Database.getAll('users');
-            const user = users.find(u => u.username === username && u.password === password);
-            
-            if (user) {
-                // Save session
-                localStorage.setItem('session', JSON.stringify({
-                    userId: user.id,
-                    username: user.username,
-                    role: user.role,
-                    loginTime: new Date().toISOString()
-                }));
-                
-                const Toast = Swal.mixin({
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 1500,
-                    timerProgressBar: true
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ email, password })
                 });
 
-                Toast.fire({
-                    icon: 'success',
-                    title: '¡Bienvenido de nuevo!'
-                }).then(() => {
-                    window.location.href = '/dashboard';
-                });
-            } else {
+                const data = await response.json();
+
+                if (response.ok) {
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 1500,
+                        timerProgressBar: true
+                    });
+
+                    Toast.fire({
+                        icon: 'success',
+                        title: '¡Bienvenido de nuevo!'
+                    }).then(() => {
+                        window.location.href = '/dashboard';
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Acceso Denegado',
+                        text: data.email || data.message || 'Error al iniciar sesión',
+                        confirmButtonColor: '#eab308',
+                        customClass: {
+                            popup: 'rounded-xl'
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
                 Swal.fire({
                     icon: 'error',
-                    title: 'Acceso Denegado',
-                    text: 'Usuario o contraseña incorrectos',
-                    confirmButtonColor: '#eab308',
-                    confirmButtonColor: '#eab308',
-                    // background: '#fff', // Removed hardcoded white background
-                    customClass: {
-                        popup: 'rounded-xl'
-                    }
+                    title: 'Error de Conexión',
+                    text: 'No se pudo contactar con el servidor',
+                    confirmButtonColor: '#eab308'
                 });
             }
         });

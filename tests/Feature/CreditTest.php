@@ -147,4 +147,57 @@ class CreditTest extends TestCase
         $this->assertDatabaseMissing('credits', ['id' => $credit->id]);
         $this->assertEquals($initialStock, $product->fresh()->stock);
     }
+
+    
+    public function test_cannot_create_credit_with_invalid_data()
+    {
+        $response = $this->postJson('/api/credits', [
+            'client_name' => '', // Empty name
+            'items' => [], // Empty items
+            'total' => 'invalid' // Invalid total
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['client_name', 'items']);
+    }
+
+    public function test_cannot_create_credit_with_insufficient_stock()
+    {
+        $product = Product::create([
+            'name' => 'Low Stock Item',
+            'category' => 'Test',
+            'price' => 1000,
+            'stock' => 1
+        ]);
+
+        $data = [
+            'client_name' => 'Test Client',
+            'items' => [
+                [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'quantity' => 5, // Exceeds stock (1)
+                    'unit_price' => 1000
+                ]
+            ],
+            'total' => 5000
+        ];
+
+        $response = $this->postJson('/api/credits', $data);
+
+        $response->assertStatus(400); // Expecting 400 Bad Request
+        $this->assertDatabaseMissing('credits', ['client_name' => 'Test Client']);
+    }
+
+    public function test_unauthenticated_user_cannot_access_credits()
+    {
+        // Logout user
+        \Illuminate\Support\Facades\Auth::logout();
+
+        $response = $this->getJson('/api/credits');
+        $response->assertStatus(401);
+
+        $response = $this->postJson('/api/credits', []);
+        $response->assertStatus(401);
+    }
 }

@@ -185,4 +185,46 @@ class SaleTest extends TestCase
 
         $response->assertStatus(400);
     }
+
+
+    public function test_cannot_create_sale_with_invalid_data()
+    {
+        $response = $this->postJson('/api/sales', [
+            'productId' => '',
+            'quantity' => -5,
+            'total' => 'abc'
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['productId', 'quantity']);
+    }
+
+    public function test_cannot_create_sale_with_zero_quantity()
+    {
+        $product = Product::create([
+            'name' => 'Zero Qty Item',
+            'category' => 'Test',
+            'price' => 1000,
+            'stock' => 10
+        ]);
+
+        $response = $this->postJson('/api/sales', [
+            'productId' => $product->id,
+            'productName' => $product->name,
+            'quantity' => 0,
+            'unitPrice' => 1000,
+            'total' => 0,
+            'paymentMethod' => 'cash'
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_unauthenticated_user_cannot_access_sales()
+    {
+        \Illuminate\Support\Facades\Auth::logout();
+
+        $response = $this->postJson('/api/sales', []);
+        $response->assertStatus(401);
+    }
 }
