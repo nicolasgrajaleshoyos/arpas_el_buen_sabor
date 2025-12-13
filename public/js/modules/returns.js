@@ -19,7 +19,12 @@ const Returns = {
 
             const historySearchInput = document.getElementById('returns-history-search');
             if (historySearchInput) {
-                historySearchInput.addEventListener('input', (e) => this.renderHistoryTable(e.target.value));
+                historySearchInput.addEventListener('input', () => this.renderHistoryTable());
+            }
+
+            const historyProductFilter = document.getElementById('returns-history-product-filter');
+            if (historyProductFilter) {
+                historyProductFilter.addEventListener('change', () => this.renderHistoryTable());
             }
 
             const productSelect = document.getElementById('return-product');
@@ -59,10 +64,17 @@ const Returns = {
             this.products = await res.json();
 
             const select = document.getElementById('return-product');
-            if (!select) return;
+            const historyFilter = document.getElementById('returns-history-product-filter');
 
-            select.innerHTML = '<option value="">Selecciona un producto...</option>' +
+            const options = '<option value="">Selecciona un producto...</option>' +
                 this.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+            if (select) select.innerHTML = options;
+
+            if (historyFilter) {
+                historyFilter.innerHTML = '<option value="">Todos los productos</option>' +
+                    this.products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            }
         } catch (error) {
             console.error('Error loading products:', error);
         }
@@ -284,16 +296,7 @@ const Returns = {
     },
 
     deleteProductReturns(productName) {
-        const returnsToDelete = this.returns.filter(r => r.productName === productName); // Note: API uses snake_case usually but our JS mapping might need adjust if API returns snake. 
-        // SaleController returns model which is snake_case by default?
-        // Let's assume API returns JSON which matches model attributes: product_name.
-        // Wait, SaleController index returns `Sale::all()`. Laravel serializes snake_case by default.
-        // So `r.productName` might be undefined if I don't map it.
-        // I need to adjust mapping or use snake_case.
-        // For safety I will check both or map on load.
-        // Actually, let's map properties in `loadReturns` loop if we want to keep `productName` usage in render.
-        // OR just update usage to `product_name`.
-        // I'll update usage to `product_name` below.
+        const returnsToDelete = this.returns.filter(r => r.productName === productName);
 
         if (returnsToDelete.length === 0) return;
 
@@ -390,7 +393,7 @@ const Returns = {
                     <div class="text-sm font-bold text-gray-900 dark:text-white">$${item.total.toLocaleString()}</div>
                 </td>
                 <td class="px-6 py-4 text-center">
-                    <button onclick="Returns.deleteProductReturns('${item.name.replace(/'/g, "\\'")}')" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar Todos los Registros de este Producto">
+                    <button onclick="Returns.deleteProductReturns('${item.name}')" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar todo">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                         </svg>
@@ -398,85 +401,6 @@ const Returns = {
                 </td>
             </tr>
         `).join('');
-    },
-
-    renderHistoryTable(searchTerm = '') {
-        const tbody = document.getElementById('returns-history-tbody');
-        if (!tbody) return;
-
-        let filteredReturns = this.returns;
-
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filteredReturns = this.returns.filter(sale =>
-                (sale.product_name || sale.productName).toLowerCase().includes(term) ||
-                (sale.description || '').toLowerCase().includes(term)
-            );
-        }
-
-        const statsContainer = document.getElementById('returns-history-stats-container');
-        const countEl = document.getElementById('returns-history-stats-count');
-        const moneyEl = document.getElementById('returns-history-stats-money');
-
-        if (statsContainer && countEl && moneyEl) {
-            if (searchTerm) {
-                const totalQty = filteredReturns.reduce((sum, s) => sum + s.quantity, 0);
-                const totalMoney = filteredReturns.reduce((sum, s) => sum + parseFloat(s.total), 0);
-
-                countEl.textContent = totalQty;
-                moneyEl.textContent = '$' + totalMoney.toLocaleString();
-                statsContainer.classList.remove('hidden');
-                statsContainer.classList.add('flex');
-            } else {
-                statsContainer.classList.add('hidden');
-                statsContainer.classList.remove('flex');
-            }
-        }
-
-        if (filteredReturns.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center py-8 text-gray-400 dark:text-gray-500">
-                        No hay historial de devoluciones
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-
-        tbody.innerHTML = filteredReturns.map(sale => {
-            const dateObj = new Date(sale.returned_at || sale.sale_date || sale.date);
-            const dateStr = dateObj.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-            const timeStr = dateObj.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
-
-            return `
-            <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <td class="px-6 py-4">
-                    <div class="text-xs text-gray-900 dark:text-white">${dateStr}</div>
-                    <div class="text-xs text-gray-500 dark:text-gray-400">${timeStr}</div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="text-sm font-medium text-gray-900 dark:text-white">${sale.product_name || sale.productName}</div>
-                </td>
-                <td class="px-6 py-4">
-                    <div class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-[150px]" title="${sale.description || ''}">${sale.description || '-'}</div>
-                </td>
-                <td class="px-6 py-4 text-center">
-                    <div class="text-sm font-bold text-red-600 dark:text-red-400">${sale.quantity}</div>
-                </td>
-                <td class="px-6 py-4 text-right">
-                    <div class="text-sm font-bold text-gray-900 dark:text-white">$${parseFloat(sale.total).toLocaleString()}</div>
-                </td>
-                <td class="px-6 py-4 text-center">
-                    <button onclick="Returns.deleteReturn(${sale.id})" class="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Eliminar Registro">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </button>
-                </td>
-            </tr>
-            `;
-        }).join('');
     },
 
     showAlert(icon, title, text) {
@@ -634,19 +558,16 @@ const Returns = {
                     </div>
                 </div>
 
-                <!-- Stats Cards -->
-
-
                 <!-- Aggregated Returns Table Section -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-100 dark:border-gray-700 transition-colors">
                     <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                             <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                             </svg>
                             Detalle por Producto (Resumen)
                         </h2>
-                        
+
                         <!-- Search -->
                         <div class="relative w-full md:w-64">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
@@ -654,7 +575,7 @@ const Returns = {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                 </svg>
                             </span>
-                            <input type="text" id="returns-search" placeholder="Buscar producto..." 
+                            <input type="text" id="returns-search" placeholder="Buscar producto..."
                                 class="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none w-full shadow-sm">
                         </div>
                     </div>
@@ -681,25 +602,40 @@ const Returns = {
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-100 dark:border-gray-700 transition-colors mt-6">
                     <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                             <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                             </svg>
                             Historial de Transacciones (Detallado)
                         </h2>
 
-                        <!-- History Search -->
-                        <div class="relative w-full md:w-64">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </span>
-                            <input type="text" id="returns-history-search" placeholder="Buscar en historial..." 
-                                class="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none w-full shadow-sm">
+                        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                            <!-- Product Filter -->
+                            <div class="relative w-full md:w-48">
+                                <select id="returns-history-product-filter" class="w-full pl-3 pr-8 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none shadow-sm appearance-none">
+                                    <option value="">Todos los productos</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- History Search -->
+                            <div class="relative w-full md:w-64">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </span>
+                                <input type="text" id="returns-history-search" placeholder="Buscar descripción..."
+                                    class="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none w-full shadow-sm">
+                            </div>
                         </div>
-                        
+
                         <!-- Search Stats (Hidden by default) -->
-                        <div id="returns-history-stats-container" class="hidden items-center gap-6 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg border border-red-100 dark:border-red-800 animate-fade-in mt-3">
+                        <div id="returns-history-stats-container" class="hidden items-center gap-6 bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-lg border border-red-100 dark:border-red-800 animate-fade-in mt-3 md:mt-0">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Cant. Total:</span>
                                 <span id="returns-history-stats-count" class="text-lg font-bold text-gray-900 dark:text-white">0</span>
@@ -736,25 +672,126 @@ const Returns = {
 
     getAdjustedDate() {
         let date = new Date();
-        const monthSelect = document.getElementById('global-month');
         const yearSelect = document.getElementById('global-year');
+        const monthSelect = document.getElementById('global-month');
         if (monthSelect && yearSelect) {
             const selectedMonth = parseInt(monthSelect.value);
             const selectedYear = parseInt(yearSelect.value);
             if (date.getMonth() !== selectedMonth || date.getFullYear() !== selectedYear) {
                 date.setFullYear(selectedYear);
                 date.setMonth(selectedMonth);
-                // Keep current day/time but adjust for month length if necessary
-                // Simple approach: set to 1st of month to avoid issues
-                // OR better: keep day if valid, or last day of month
-                // sales.js implementation uses current day but doesn't check for overflow (e.g. jan 31 -> feb -> mar 3)
-                // Let's copy the safeset logic: set to 1st or just current time if in range, else start of month?
-                // sales.js logic:
-                // if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) return iso;
-                // else { date.setFullYear(year); date.setMonth(month); return iso; }
-                // This implies if we switch to Jan 2026, it uses 'today's day' in Jan 2026. This is fine.
             }
         }
         return date.toISOString();
+    },
+
+    renderHistoryTable() {
+        const tbody = document.getElementById('returns-history-tbody');
+        if (!tbody) return;
+
+        const searchInput = document.getElementById('returns-history-search');
+        const productFilter = document.getElementById('returns-history-product-filter');
+
+        let filteredReturns = this.returns || [];
+
+        // Get filter values
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const selectedProductId = productFilter ? productFilter.value : '';
+
+        // Apply filters
+        if (searchTerm || selectedProductId) {
+            filteredReturns = filteredReturns.filter(txn => {
+                // 1. Text Search (Product Name OR Description)
+                const productName = (txn.product_name || txn.productName || '').toLowerCase();
+                const description = (txn.description || '').toLowerCase();
+
+                const matchesSearch = !searchTerm ||
+                    description.includes(searchTerm);
+
+                // 2. Product Dropdown (Specific Product ID)
+                // We compare loose equality (==) because DOM values are strings, IDs might be ints
+                const matchesProduct = !selectedProductId ||
+                    (txn.product_id == selectedProductId) ||
+                    (txn.productId == selectedProductId);
+
+                return matchesSearch && matchesProduct;
+            });
+        }
+
+        // Update Stats
+        const totalQtyEl = document.getElementById('returns-history-stats-count');
+        const totalMoneyEl = document.getElementById('returns-history-stats-money');
+        const statsContainer = document.getElementById('returns-history-stats-container');
+
+        if (totalQtyEl && totalMoneyEl && statsContainer) {
+            if (searchTerm || selectedProductId) {
+                const totalQty = filteredReturns.reduce((sum, txn) => sum + (parseFloat(txn.quantity) || 0), 0);
+                const totalMoney = filteredReturns.reduce((sum, txn) => sum + (parseFloat(txn.total) || 0), 0);
+
+                totalQtyEl.textContent = totalQty;
+                totalMoneyEl.textContent = `$${totalMoney.toLocaleString()} `;
+                statsContainer.classList.remove('hidden');
+                statsContainer.classList.add('flex');
+            } else {
+                statsContainer.classList.add('hidden');
+                statsContainer.classList.remove('flex');
+            }
+        }
+
+        // Render Table Rows
+        if (filteredReturns.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-gray-500">
+                        No se encontraron transacciones coinciden con los filtros.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = filteredReturns.map(txn => `
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    <div>${this.formatDate(txn.created_at || txn.date)}</div>
+                    <div class="text-xs text-gray-400">${this.formatTime(txn.created_at || txn.date)}</div>
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">${txn.product_name || txn.productName}</span>
+                </td>
+                 <td class="px-6 py-4">
+                    <span class="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs block" title="${txn.description || '-'}">
+                        ${txn.description || '-'}
+                    </span>
+                 </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-center">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                        ${txn.quantity}
+                    </span>
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900 dark:text-white">
+                    $${parseFloat(txn.total).toLocaleString()}
+                </td>
+                 <td class="px-6 py-4 whitespace-nowrap text-center">
+                     <button class="text-red-600 hover:text-red-900 dark:hover:text-red-400 transition-colors bg-red-50 dark:bg-red-900/20 p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40">
+                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                     </button>
+                 </td>
+            </tr>
+        `).join('');
+    },
+
+    formatDate(dateString) {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' }).format(date);
+    },
+
+    formatTime(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('es-CO', { hour: 'numeric', minute: 'numeric', hour12: true }).format(date);
     }
 };

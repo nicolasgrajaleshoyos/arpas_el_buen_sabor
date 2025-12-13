@@ -329,9 +329,15 @@ const HR = {
                     </div>
                     
                     <div class="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <div>
-                             <span class="text-sm text-gray-500 dark:text-gray-400">Total Nómina:</span>
-                             <span id="payroll-grand-total" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 ml-2">$0</span>
+                        <div class="flex flex-col md:flex-row gap-4">
+                             <div>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">Total Salarios:</span>
+                                <span id="payroll-base-total" class="text-xl font-bold text-gray-700 dark:text-gray-300 ml-2">$0</span>
+                             </div>
+                             <div>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">Total a Pagar:</span>
+                                <span id="payroll-grand-total" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 ml-2">$0</span>
+                             </div>
                         </div>
                          <div class="flex gap-3">
                             <button onclick="document.getElementById('payroll-modal').classList.add('hidden')" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors">Cancelar</button>
@@ -747,6 +753,7 @@ const HR = {
     updatePayrollTotals() {
         const rows = document.querySelectorAll('#payroll-generation-tbody tr');
         let grandTotal = 0;
+        let grandBaseTotal = 0;
 
         rows.forEach(row => {
             const salary = parseFloat(row.querySelector('.salary-input').value) || 0;
@@ -756,10 +763,14 @@ const HR = {
 
             row.querySelector('.total-cell').textContent = `$${total.toLocaleString()}`;
             grandTotal += total;
+            grandBaseTotal += salary;
         });
 
         const grandTotalEl = document.getElementById('payroll-grand-total');
         if (grandTotalEl) grandTotalEl.textContent = `$${grandTotal.toLocaleString()}`;
+
+        const baseTotalEl = document.getElementById('payroll-base-total');
+        if (baseTotalEl) baseTotalEl.textContent = `$${grandBaseTotal.toLocaleString()}`;
     },
 
     async savePayroll() {
@@ -782,13 +793,16 @@ const HR = {
 
             // Use stored pending advances instead of dataset for reliability
             if (this.pendingAdvances) {
-                const employeeAdvances = this.pendingAdvances.filter(a => a.employee_id === emp.id);
+                // Use loose comparison for ID to avoid type mismatch
+                const employeeAdvances = this.pendingAdvances.filter(a => a.employee_id == emp.id);
                 const totalAdvanceAmount = employeeAdvances.reduce((s, a) => s + parseFloat(a.amount), 0);
 
+                console.log(`Checking advances for emp ${emp.id}:`, employeeAdvances, 'Deduction:', deduction, 'Total Adv:', totalAdvanceAmount);
+
                 // If deduction covers the total advance amount (allowing for small float diff)
-                // e.g., if deduction is 100 and total is 100.00001
                 if (employeeAdvances.length > 0 && deduction >= (totalAdvanceAmount - 0.01)) {
                     deductedAdvanceIds = employeeAdvances.map(a => a.id);
+                    console.log('Marking advances for deduction:', deductedAdvanceIds);
                 }
             }
 
@@ -869,7 +883,15 @@ const HR = {
 
         const totalYear = this.currentPayrolls
             .filter(p => p.year === year)
-            .reduce((sum, p) => sum + parseFloat(p.total), 0);
+            // Sum all employees' base salaries + bonuses within each payroll
+            .reduce((sum, p) => {
+                const payrollBaseTotal = (p.employees || []).reduce((empSum, emp) => {
+                    const salary = parseFloat(emp.baseSalary || 0);
+                    const bonus = parseFloat(emp.bonus || 0);
+                    return empSum + salary + bonus;
+                }, 0);
+                return sum + payrollBaseTotal;
+            }, 0);
 
         const el = document.getElementById('total-paid-year');
         if (el) {
