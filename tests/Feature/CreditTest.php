@@ -31,7 +31,8 @@ class CreditTest extends TestCase
         $response = $this->getJson('/api/credits');
 
         $response->assertStatus(200)
-            ->assertJsonFragment(['client_name' => 'John Doe']);
+            ->assertJsonFragment(['client_name' => 'John Doe'])
+            ->assertJsonStructure(['*' => ['id', 'client_name', 'total_amount', 'paid_amount', 'status']]);
     }
 
     public function test_can_create_credit()

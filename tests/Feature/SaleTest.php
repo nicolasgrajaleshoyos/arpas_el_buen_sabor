@@ -105,4 +105,84 @@ class SaleTest extends TestCase
         $this->assertEquals('returned', $sale->fresh()->status);
         $this->assertEquals($initialStock, $product->fresh()->stock);
     }
+
+    public function test_can_return_partial_sale_quantity()
+    {
+        $initialStock = 10;
+        $quantity = 5;
+        $returnQty = 2;
+        
+        $product = Product::create([
+            'name' => 'Partial Item',
+            'category' => 'Test',
+            'price' => 5000,
+            'stock' => $initialStock - $quantity
+        ]);
+
+        $sale = Sale::create([
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => $quantity,
+            'unit_price' => 5000,
+            'total' => $quantity * 5000,
+            'sale_date' => now(),
+            'status' => 'completed',
+            'payment_method' => 'cash',
+            'cash_amount' => $quantity * 5000,
+            'transfer_amount' => 0
+        ]);
+
+        $response = $this->putJson("/api/sales/{$sale->id}", [
+            'status' => 'returned',
+            'return_quantity' => $returnQty
+        ]);
+
+        $response->assertStatus(201); // Controller returns 201 (Created) for the new split record
+        // Controller returns the new model, default status 200 for PUT usually, but let's see. 
+        // Actually, Controller returns `$returnedSale` or `$sale`. 
+        // Laravel default for successful request is 200.
+
+        // 1. Verify Original Sale Reduced
+        $this->assertEquals(3, $sale->fresh()->quantity);
+        $this->assertEquals(15000, $sale->fresh()->total);
+
+        // 2. Verify New Returned Sale Created
+        $this->assertDatabaseHas('sales', [
+            'product_id' => $product->id,
+            'quantity' => $returnQty,
+            'status' => 'returned',
+            'total' => 10000
+        ]);
+
+        // 3. Verify Stock Restored (+2)
+        // Initial was 5 (10-5). Restored 2 = 7.
+        $this->assertEquals(7, $product->fresh()->stock);
+    }
+
+    public function test_cannot_return_more_than_sold_quantity()
+    {
+        $product = Product::create([
+            'name' => 'Test', 
+            'price' => 100, 
+            'stock' => 10,
+            'category' => 'Test'
+        ]);
+        $sale = Sale::create([
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => 2,
+            'unit_price' => 100,
+            'total' => 200,
+            'status' => 'completed',
+            'payment_method' => 'cash',
+            'sale_date' => now()
+        ]);
+
+        $response = $this->putJson("/api/sales/{$sale->id}", [
+            'status' => 'returned',
+            'return_quantity' => 3
+        ]);
+
+        $response->assertStatus(400);
+    }
 }

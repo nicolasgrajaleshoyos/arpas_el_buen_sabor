@@ -48,6 +48,7 @@ const Credits = {
             const res = await fetch('/api/credits');
             this.credits = await res.json();
             this.renderCreditsTable();
+            this.updateGlobalStats();
         } catch (error) {
             console.error('Error loading credits:', error);
         }
@@ -83,6 +84,26 @@ const Credits = {
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">💳 Gestión de Créditos</h1>
                         <p class="text-gray-600 dark:text-gray-400 mt-1">Administra ventas a crédito y abonos</p>
+                    </div>
+                </div>
+
+                <!-- Global Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+                        <div class="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Total Deuda Global</div>
+                        <div id="global-stat-total" class="text-2xl font-bold text-gray-900 dark:text-white mt-1">$0</div>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800">
+                        <div class="text-sm font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Saldo Pendiente</div>
+                        <div id="global-stat-pending" class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">$0</div>
+                    </div>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800">
+                        <div class="text-sm font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Total Recaudado</div>
+                        <div id="global-stat-paid" class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">$0</div>
+                    </div>
+                     <div class="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-xl border border-purple-100 dark:border-purple-800">
+                        <div class="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Créditos Activos</div>
+                        <div id="global-stat-count" class="text-2xl font-bold text-gray-900 dark:text-white mt-1">0</div>
                     </div>
                 </div>
 
@@ -215,6 +236,28 @@ const Credits = {
     },
 
     // Logic Methods
+    updateGlobalStats() {
+        if (!this.credits) return;
+        const stats = this.credits.reduce((acc, c) => {
+            acc.total += parseFloat(c.total_amount);
+            acc.paid += parseFloat(c.paid_amount);
+            if (c.status !== 'paid') acc.activeCount++;
+            return acc;
+        }, { total: 0, paid: 0, activeCount: 0 });
+
+        const pending = stats.total - stats.paid;
+
+        const totalEl = document.getElementById('global-stat-total');
+        const pendingEl = document.getElementById('global-stat-pending');
+        const paidEl = document.getElementById('global-stat-paid');
+        const countEl = document.getElementById('global-stat-count');
+
+        if (totalEl) totalEl.textContent = '$' + stats.total.toLocaleString();
+        if (pendingEl) pendingEl.textContent = '$' + pending.toLocaleString();
+        if (paidEl) paidEl.textContent = '$' + stats.paid.toLocaleString();
+        if (countEl) countEl.textContent = stats.activeCount;
+    },
+
     addToCart() {
         const productSelect = document.getElementById('credit-product');
         const quantityInput = document.getElementById('credit-quantity');
@@ -461,6 +504,7 @@ const Credits = {
 
             Swal.fire('Abono Exitoso', 'El pago ha sido registrado', 'success');
             this.loadCredits();
+            this.updateGlobalStats();
         } catch (error) {
             Swal.fire('Error', 'No se pudo registrar el pago', 'error');
         }
@@ -535,6 +579,7 @@ const Credits = {
             );
 
             this.loadCredits();
+            this.updateGlobalStats();
             this.loadProducts(); // Refresh stock
 
         } catch (error) {

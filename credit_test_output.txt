@@ -1,70 +1,10 @@
 
-   FAIL  Tests\Feature\CreditTest
-  Ô£ô can listÔÇª 0.83s  
-  Ô¿» can creaÔÇª 0.09s  
-  Ô¿» can addÔÇª  0.04s  
-  Ô£ô can deleÔÇª 0.04s  
-  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
-   FAILED  TestsÔÇª   
-  Expected response status code [201] but received 422.
-Failed asserting that 422 is identical to 201.
+   PASS  Tests\Feature\CreditTest
+  ✓ can list… 1.35s  
+  ✓ can crea… 0.09s  
+  ✓ can add…  0.07s  
+  ✓ can dele… 0.06s  
 
-The following errors occurred during the last request:
-
-{
-    "message": "The client name field is required. (and 2 more errors)",
-    "errors": {
-        "client_name": [
-            "The client name field is required."
-        ],
-        "items.0.product_id": [
-            "The items.0.product_id field is required."
-        ],
-        "items.0.unit_price": [
-            "The items.0.unit_price field is required."
-        ]
-    }
-}
-
-  at tests\Feature\CreditTest.php:70
-     66Ôûò         
-     67Ôûò         // Note: If no specific CreditController@store exists and it uses SaleController, this might need adjustment.
-     68Ôûò         // Based on file list, CreditController exists.
-     69Ôûò         
-  Ô×£  70Ôûò         $response->assertStatus(201);
-     71Ôûò         $this->assertDatabaseHas('credits', ['client_name' => 'New Client']);
-     72Ôûò         
-     73Ôûò         // Verify stock reduction confirmed? Usually credits also reduce stock.
-     74Ôûò         $this->assertEquals(8, $product->fresh()->stock);
-
-  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
-   FAILED  TestsÔÇª   
-  Expected response status code [200] but received 422.
-Failed asserting that 422 is identical to 200.
-
-The following errors occurred during the last request:
-
-{
-    "message": "The date field is required.",
-    "errors": {
-        "date": [
-            "The date field is required."
-        ]
-    }
-}
-
-  at tests\Feature\CreditTest.php:89
-     85Ôûò         $response = $this->postJson("/api/credits/{$credit->id}/payments", [
-     86Ôûò             'amount' => 20000
-     87Ôûò         ]);
-     88Ôûò 
-  Ô×£  89Ôûò         $response->assertStatus(200);
-     90Ôûò         
-     91Ôûò         $this->assertDatabaseHas('credit_payments', [
-     92Ôûò             'credit_id' => $credit->id,
-     93Ôûò             'amount' => 20000
-
-
-  Tests:    2 failed, 2 passed (7 assertions)
-  Duration: 1.46s
+  Tests:    4 passed (18 assertions)
+  Duration: 2.30s
 

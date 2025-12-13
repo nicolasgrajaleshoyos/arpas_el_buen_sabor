@@ -74,15 +74,56 @@ class SaleController extends Controller
         $sale = Sale::findOrFail($id);
         
         // Handle Return Status Update
+        // Handle Return Logic
         if ($request->has('status') && $request->status === 'returned') {
-             $sale->update([
-                 'status' => 'returned',
-                 'returned_at' => $request->input('returned_at') ?? now()
-             ]);
-             
-             // Restore stock
-             $sale->product->increment('stock', $sale->quantity);
-             return response()->json($sale);
+            $returnQty = $request->input('return_quantity', $sale->quantity); // Default to full quantity if not provided
+
+            // Validate return quantity
+            if ($returnQty <= 0 || $returnQty > $sale->quantity) {
+                return response()->json(['message' => 'Invalid return quantity'], 400);
+            }
+
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($sale, $returnQty, $request) {
+                // If partial return
+                if ($returnQty < $sale->quantity) {
+                    $remainingQty = $sale->quantity - $returnQty;
+                    $unitPrice = $sale->unit_price;
+                    
+                    // 1. Create new Sale record for the returned items
+                    $returnedSale = $sale->replicate();
+                    $returnedSale->quantity = $returnQty;
+                    $returnedSale->total = $unitPrice * $returnQty;
+                    $returnedSale->status = 'returned';
+                    $returnedSale->returned_at = $request->input('returned_at') ?? now();
+                    // Cash/Transfer split for returned item (proportional)
+                    $ratio = $returnQty / $sale->quantity;
+                    $returnedSale->cash_amount = $sale->cash_amount * $ratio;
+                    $returnedSale->transfer_amount = $sale->transfer_amount * $ratio;
+                    $returnedSale->save();
+
+                    // 2. Update original Sale record (remaining items)
+                    $sale->quantity = $remainingQty;
+                    $sale->total = $unitPrice * $remainingQty;
+                    $sale->cash_amount = $sale->cash_amount - $returnedSale->cash_amount;
+                    $sale->transfer_amount = $sale->transfer_amount - $returnedSale->transfer_amount;
+                    $sale->save();
+
+                    // 3. Restore stock for returned quantity
+                    $sale->product->increment('stock', $returnQty);
+
+                    return $returnedSale;
+                } else {
+                    // Full return
+                    $sale->update([
+                        'status' => 'returned',
+                        'returned_at' => $request->input('returned_at') ?? now()
+                    ]);
+                    
+                    // Restore stock for full quantity
+                    $sale->product->increment('stock', $sale->quantity);
+                    return $sale;
+                }
+            });
         }
 
         return response()->json(['message' => 'Update not fully implemented for other fields'], 501);
